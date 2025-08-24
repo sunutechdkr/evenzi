@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
+import { applyRateLimit, createRateLimiter } from './lib/rateLimiter';
+import { logger } from './lib/logger';
 
 // List of public routes that don't require authentication
 const publicRoutes = [
@@ -36,11 +38,42 @@ const userRoutes = [
   '/dashboard/user'
 ];
 
-// Simple rate limiting (à remplacer par Redis en production)
-const rateLimit = new Map();
+// Rate limiters spécialisés
+const authRateLimiter = createRateLimiter.auth();
+const apiRateLimiter = createRateLimiter.api();
+const generalRateLimiter = createRateLimiter.general();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  // Appliquer le rate limiting en fonction du type de route
+  let rateLimitResult;
+  
+  if (pathname.startsWith('/api/auth')) {
+    rateLimitResult = await applyRateLimit(request, authRateLimiter);
+  } else if (pathname.startsWith('/api/')) {
+    rateLimitResult = await applyRateLimit(request, apiRateLimiter);
+  } else {
+    rateLimitResult = await applyRateLimit(request, generalRateLimiter);
+  }
+  
+  // Si rate limit dépassé, retourner erreur 429
+  if (!rateLimitResult.allowed) {
+    const response = NextResponse.json(
+      { 
+        error: 'Too many requests',
+        retryAfter: rateLimitResult.retryAfter 
+      },
+      { status: 429 }
+    );
+    
+    // Ajouter les headers de rate limiting
+    rateLimitResult.headers.forEach((value, key) => {
+      response.headers.set(key, value);
+    });
+    
+    return response;
+  }
   
   // Skip authentication check for public routes or API routes that aren't protected
   if (
@@ -62,7 +95,7 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', request.url);
-    console.log(`Authentification requise pour accéder à: ${pathname}`);
+    logger.debug('Authentication required', { pathname, ip: request.ip });
     return NextResponse.redirect(loginUrl);
   }
 

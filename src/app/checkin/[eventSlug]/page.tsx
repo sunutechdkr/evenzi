@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import Logo from '@/components/ui/Logo';
+import { clientLogger, devLog, devError } from '@/lib/clientLogger';
 
 // Import conditionnel du scanner HTML5QR pour éviter les erreurs côté serveur
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,11 +88,11 @@ export default function CheckInPage() {
   useEffect(() => {
     const fetchEventId = async () => {
       try {
-        console.log("Récupération de l'ID d'événement pour le slug:", eventSlug);
+        devLog("Récupération de l'ID d'événement pour le slug:", eventSlug);
         const response = await fetch(`/api/events/slug/${eventSlug}`);
         if (response.ok) {
           const data = await response.json();
-          console.log(`Event ID récupéré pour ${eventSlug} : ${data.id}`);
+          devLog(`Event ID récupéré pour ${eventSlug} : ${data.id}`);
           setEventId(data.id);
           currentEventName.current = data.name;
           

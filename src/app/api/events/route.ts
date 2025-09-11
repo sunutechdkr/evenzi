@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createDefaultTemplates } from "@/lib/defaultTemplates";
+import { eventValidationSchema, validateQueryParams, paginationSchema } from '@/lib/validation';
+import { addSecurityHeaders } from '@/lib/security';
 
 // GET /api/events - Récupérer la liste des événements
 export async function GET(request: Request) {

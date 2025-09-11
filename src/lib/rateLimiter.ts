@@ -175,8 +175,65 @@ export const createRateLimiter = {
   upload: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
     maxRequests: 5
-  })
+  }),
+
+  // Rate limiter personnalisable
+  custom: (options: RateLimitOptions) => new RateLimiter(options)
 };
+
+/**
+ * Règles de rate limiting par endpoint
+ */
+interface RateLimitRule {
+  windowMs: number;
+  maxRequests: number;
+  skipSuccessfulRequests?: boolean;
+}
+
+const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
+  // Authentification très stricte
+  '/api/auth': {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    maxRequests: 5
+  },
+  
+  // APIs de création modérément strictes
+  '/api/events': {
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 10
+  },
+  
+  '/api/users': {
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 5
+  },
+  
+  // APIs de lecture plus permissives
+  '/api/dashboard': {
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 30
+  },
+  
+  // Défaut pour toutes les autres routes
+  'default': {
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 20
+  }
+};
+
+/**
+ * Obtenir la règle de rate limiting pour un endpoint
+ */
+export function getRateLimitRule(pathname: string): RateLimitRule {
+  // Chercher une règle spécifique
+  for (const [path, rule] of Object.entries(RATE_LIMIT_RULES)) {
+    if (path !== 'default' && pathname.startsWith(path)) {
+      return rule;
+    }
+  }
+  
+  return RATE_LIMIT_RULES.default;
+}
 
 // Instance globale pour le middleware
 export const globalRateLimiter = createRateLimiter.general();

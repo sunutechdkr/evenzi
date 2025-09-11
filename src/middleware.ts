@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
-import { applyRateLimit, createRateLimiter } from './lib/rateLimiter';
+import { applyRateLimit, createRateLimiter, getRateLimitRule } from './lib/rateLimiter';
 import { logger } from './lib/logger';
+import { 
+  securityMiddleware, 
+  corsMiddleware, 
+  addSecurityHeaders,
+  logSecurityEvent 
+} from './lib/security';
 
 // List of public routes that don't require authentication
 const publicRoutes = [
@@ -48,23 +54,45 @@ const generalRateLimiter = createRateLimiter.general();
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Appliquer le rate limiting en fonction du type de route
-  let rateLimitResult;
-  
-  if (pathname.startsWith('/api/auth')) {
-    rateLimitResult = await applyRateLimit(request, authRateLimiter);
-  } else if (pathname.startsWith('/api/')) {
-    rateLimitResult = await applyRateLimit(request, apiRateLimiter);
-  } else {
-    rateLimitResult = await applyRateLimit(request, generalRateLimiter);
+  // 1. SÉCURITÉ - Vérifications de sécurité globales
+  const securityResponse = await securityMiddleware(request);
+  if (securityResponse) {
+    logSecurityEvent('SUSPICIOUS_ACTIVITY', {
+      ip: request.ip,
+      userAgent: request.headers.get('user-agent'),
+      url: request.url,
+      pathname
+    });
+    return addSecurityHeaders(securityResponse);
   }
+  
+  // 2. RATE LIMITING - Application du rate limiting adaptatif
+  const rateLimitRule = getRateLimitRule(pathname);
+  const rateLimiter = createRateLimiter.custom({
+    windowMs: rateLimitRule.windowMs,
+    maxRequests: rateLimitRule.maxRequests,
+    skipSuccessfulRequests: rateLimitRule.skipSuccessfulRequests
+  });
+  
+  const rateLimitResult = await applyRateLimit(request, rateLimiter);
   
   // Si rate limit dépassé, retourner erreur 429
   if (!rateLimitResult.allowed) {
+    logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+      ip: request.ip,
+      userAgent: request.headers.get('user-agent'),
+      url: request.url,
+      pathname,
+      limit: rateLimitRule.maxRequests,
+      window: rateLimitRule.windowMs
+    });
+
     const response = NextResponse.json(
       { 
-        error: 'Too many requests',
-        retryAfter: rateLimitResult.retryAfter 
+        error: 'Trop de requêtes. Veuillez patienter.',
+        retryAfter: rateLimitResult.retryAfter,
+        limit: rateLimitRule.maxRequests,
+        windowMs: rateLimitRule.windowMs
       },
       { status: 429 }
     );
@@ -74,7 +102,7 @@ export async function middleware(request: NextRequest) {
       response.headers.set(key, value);
     });
     
-    return response;
+    return addSecurityHeaders(response);
   }
   
   // Skip authentication check for public routes or API routes that aren't protected
@@ -153,8 +181,17 @@ export async function middleware(request: NextRequest) {
 
   // Rate limiting déjà appliqué ci-dessus, pas besoin de dupliquer
 
-  // Continue to protected route
-  return NextResponse.next();
+  // 3. CORS - Appliquer les headers CORS pour les APIs
+  let response = NextResponse.next();
+  
+  if (pathname.startsWith('/api/')) {
+    response = corsMiddleware(request, response);
+  }
+  
+  // 4. HEADERS DE SÉCURITÉ - Ajouter les headers de sécurité
+  response = addSecurityHeaders(response);
+  
+  return response;
 }
 
 // Configure which routes the middleware should run on

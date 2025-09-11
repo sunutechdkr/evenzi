@@ -9,10 +9,12 @@ import { logger } from './lib/logger';
 const publicRoutes = [
   '/', 
   '/login', 
+  '/auth/signin',
+  '/auth/auto-login',
+  '/auth/auto-login-participant',
+  '/auth/verify-request',
   '/api/auth', 
   '/register', 
-  '/auth/verify-request',
-  '/auth/auto-login',
   '/event',
   '/api/register',
   '/api/events/slug', // API pour récupérer les événements par slug
@@ -149,29 +151,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Check rate limit
-  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-  const now = Date.now();
-  const windowMs = 15 * 60 * 1000; // 15 minutes
-  const maxRequests = 100;
-
-  const userRequests = rateLimit.get(ip) || { count: 0, resetTime: now + windowMs };
-
-  if (now > userRequests.resetTime) {
-    userRequests.count = 1;
-    userRequests.resetTime = now + windowMs;
-  } else {
-    userRequests.count++;
-  }
-
-  rateLimit.set(ip, userRequests);
-
-  if (userRequests.count > maxRequests) {
-    return NextResponse.json(
-      { error: 'Too many requests' },
-      { status: 429 }
-    );
-  }
+  // Rate limiting déjà appliqué ci-dessus, pas besoin de dupliquer
 
   // Continue to protected route
   return NextResponse.next();

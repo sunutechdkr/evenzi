@@ -2,14 +2,8 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
-import { applyRateLimit, createRateLimiter, getRateLimitRule } from './lib/rateLimiter';
+import { applyRateLimit, createRateLimiter } from './lib/rateLimiter';
 import { logger } from './lib/logger';
-import { 
-  securityMiddleware, 
-  corsMiddleware, 
-  addSecurityHeaders,
-  logSecurityEvent 
-} from './lib/security';
 
 // List of public routes that don't require authentication
 const publicRoutes = [
@@ -54,45 +48,58 @@ const generalRateLimiter = createRateLimiter.general();
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // 1. SÉCURITÉ - Vérifications de sécurité globales
-  const securityResponse = await securityMiddleware(request);
-  if (securityResponse) {
-    logSecurityEvent('SUSPICIOUS_ACTIVITY', {
-      ip: request.ip,
-      userAgent: request.headers.get('user-agent'),
-      url: request.url,
-      pathname
-    });
-    return addSecurityHeaders(securityResponse);
+  // 1. DÉTECTION BASIQUE D'ATTAQUES - Sans modules Node.js
+  const url = request.nextUrl.toString();
+  const userAgent = request.headers.get('user-agent') || '';
+  
+  // Patterns d'attaque basiques
+  const suspiciousPatterns = [
+    /(\bSELECT\b|\bUNION\b|\bDROP\b)/gi,
+    /<script[^>]*>/gi,
+    /javascript:/gi,
+    /\.\.\/\.\.\//g
+  ];
+  
+  const suspiciousUserAgents = ['sqlmap', 'nikto', 'nmap'];
+  
+  if (suspiciousPatterns.some(pattern => pattern.test(url)) ||
+      suspiciousUserAgents.some(ua => userAgent.toLowerCase().includes(ua))) {
+    console.warn('🚨 Suspicious activity detected:', { url, userAgent, ip: request.ip });
+    return NextResponse.json(
+      { error: 'Requête suspecte détectée' },
+      { 
+        status: 400,
+        headers: {
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY'
+        }
+      }
+    );
   }
   
-  // 2. RATE LIMITING - Application du rate limiting adaptatif
-  const rateLimitRule = getRateLimitRule(pathname);
-  const rateLimiter = createRateLimiter.custom({
-    windowMs: rateLimitRule.windowMs,
-    maxRequests: rateLimitRule.maxRequests,
-    skipSuccessfulRequests: rateLimitRule.skipSuccessfulRequests
-  });
+  // 2. RATE LIMITING SIMPLIFIÉ - Utiliser le rate limiter existant
+  let rateLimitResult;
   
-  const rateLimitResult = await applyRateLimit(request, rateLimiter);
+  if (pathname.startsWith('/api/auth')) {
+    rateLimitResult = await applyRateLimit(request, authRateLimiter);
+  } else if (pathname.startsWith('/api/')) {
+    rateLimitResult = await applyRateLimit(request, apiRateLimiter);
+  } else {
+    rateLimitResult = await applyRateLimit(request, generalRateLimiter);
+  }
   
   // Si rate limit dépassé, retourner erreur 429
   if (!rateLimitResult.allowed) {
-    logSecurityEvent('RATE_LIMIT_EXCEEDED', {
+    console.warn('🚫 Rate limit exceeded:', { 
+      pathname, 
       ip: request.ip,
-      userAgent: request.headers.get('user-agent'),
-      url: request.url,
-      pathname,
-      limit: rateLimitRule.maxRequests,
-      window: rateLimitRule.windowMs
+      retryAfter: rateLimitResult.retryAfter 
     });
 
     const response = NextResponse.json(
       { 
         error: 'Trop de requêtes. Veuillez patienter.',
-        retryAfter: rateLimitResult.retryAfter,
-        limit: rateLimitRule.maxRequests,
-        windowMs: rateLimitRule.windowMs
+        retryAfter: rateLimitResult.retryAfter
       },
       { status: 429 }
     );
@@ -102,17 +109,21 @@ export async function middleware(request: NextRequest) {
       response.headers.set(key, value);
     });
     
-    return addSecurityHeaders(response);
+    return response;
   }
   
-  // Skip authentication check for public routes or API routes that aren't protected
+  // 3. SKIP AUTHENTIFICATION - Routes publiques
   if (
     publicRoutes.some(route => pathname.startsWith(route)) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
     pathname.includes('.') // Static files like favicon.ico
   ) {
-    return NextResponse.next();
+    // Ajouter des headers de sécurité basiques même pour les routes publiques
+    const response = NextResponse.next();
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    return response;
   }
   
   // Check if user is authenticated
@@ -179,17 +190,34 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Rate limiting déjà appliqué ci-dessus, pas besoin de dupliquer
-
-  // 3. CORS - Appliquer les headers CORS pour les APIs
+  // 4. HEADERS DE SÉCURITÉ ET CORS BASIQUES - Sans modules Node.js
   let response = NextResponse.next();
   
-  if (pathname.startsWith('/api/')) {
-    response = corsMiddleware(request, response);
-  }
+  // Headers de sécurité basiques
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
   
-  // 4. HEADERS DE SÉCURITÉ - Ajouter les headers de sécurité
-  response = addSecurityHeaders(response);
+  // CORS basique pour les APIs
+  if (pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin');
+    const allowedOrigins = [
+      'https://studio.evenzi.io',
+      'https://evenzi.vercel.app'
+    ];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+    }
+    
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Gérer les requêtes OPTIONS
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 200, headers: response.headers });
+    }
+  }
   
   return response;
 }

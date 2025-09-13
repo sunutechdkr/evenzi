@@ -1,6 +1,6 @@
 {
   "name": "evenzi",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "🎉 Evenzi - Modern Event Management Platform built with Next.js 15, TypeScript, and Tailwind CSS",
   "scripts": {

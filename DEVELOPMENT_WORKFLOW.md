@@ -14,6 +14,10 @@
 - **Déploiement** : Automatique sur chaque push
 - **Usage** : Développement et tests de nouvelles fonctionnalités
 
+## ✅ **VARIABLES D'ENVIRONNEMENT CONFIGURÉES**
+- Toutes les variables sont maintenant disponibles pour Preview et Production
+- DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, RESEND_API_KEY, etc.
+
 ## 🔄 Workflow de Développement
 
 ### **1. Développement de Nouvelles Fonctionnalités**

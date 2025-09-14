@@ -434,21 +434,31 @@ model MatchSuggestion {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  title     String
-  body      String
-  userId    String           @map("user_id")
-  eventId   String?          @map("event_id")
-  data      Json?
-  createdAt DateTime         @default(now()) @map("created_at")
-  type      NotificationType
-  readAt    DateTime?        @map("read_at")
-  event     Event?           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id          String               @id @default(cuid())
+  userId      String               @map("user_id")
+  title       String
+  message     String
+  type        NotificationType
+  priority    NotificationPriority @default(NORMAL)
+  isRead      Boolean              @default(false) @map("is_read")
+  readAt      DateTime?            @map("read_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at")
+  
+  // Données contextuelles optionnelles
+  eventId     String?              @map("event_id")
+  entityId    String?              @map("entity_id")
+  entityType  String?              @map("entity_type")
+  actionUrl   String?              @map("action_url")
+  metadata    Json?
+  
+  // Relations
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event?               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
   @@index([userId, createdAt])
-  @@index([eventId, createdAt])
-  @@index([userId, readAt])
+  @@index([eventId])
   @@map("notifications")
 }
 
@@ -574,11 +584,20 @@ enum GameAction {
 }
 
 enum NotificationType {
-  APPOINTMENT_REQUEST
-  APPOINTMENT_ACCEPTED
-  MESSAGE
-  SESSION_UPDATE
-  NEW_REGISTRATION
-  SPONSOR_UPDATE
-  SYSTEM
+  SYSTEM        // Notifications système
+  EVENT         // Événements (création, modification)
+  REGISTRATION  // Inscriptions
+  APPOINTMENT   // Rendez-vous
+  GAME          // Gamification
+  EMAIL         // Campagnes email
+  MATCHMAKING   // Suggestions de matchmaking
+  SESSION       // Sessions d'événement
+  BADGE         // Badges obtenus
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }

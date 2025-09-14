@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { generateShortCode } from "@/lib/shortcodes";
 import { sendRegistrationConfirmationEmail } from "@/lib/registrationEmail";
-import { createRegistrationNotification } from "@/lib/notifications";
+import { 
+  createRegistrationMilestoneNotification,
+  checkRegistrationMilestone 
+} from "@/lib/notifications";
 
 // POST /api/register - Create a new registration without authentication
 export async function POST(request: Request) {
@@ -147,17 +150,21 @@ export async function POST(request: Request) {
       // On ne fait pas échouer l'inscription si l'email échoue
     }
 
-    // Créer une notification pour l'organisateur de l'événement
+    // Vérifier si on a atteint un palier d'inscription (100, 250, 500, etc.)
     try {
-      await createRegistrationNotification(
-        event.user.id, // ID de l'organisateur
-        eventId,
-        `${firstName} ${lastName}`,
-        registration.id
-      );
-      console.log(`🔔 Notification d'inscription créée pour l'organisateur de l'événement ${event.name}`);
+      const milestoneCheck = await checkRegistrationMilestone(eventId);
+      
+      if (milestoneCheck.shouldNotify && milestoneCheck.milestone) {
+        await createRegistrationMilestoneNotification(
+          event.user.id, // ID de l'organisateur
+          eventId,
+          event.name,
+          milestoneCheck.milestone
+        );
+        console.log(`🎉 Notification de palier d'inscription créée: ${milestoneCheck.milestone} participants pour l'événement ${event.name}`);
+      }
     } catch (notificationError) {
-      console.error('⚠️ Erreur lors de la création de la notification d\'inscription:', notificationError);
+      console.error('⚠️ Erreur lors de la vérification du palier d\'inscription:', notificationError);
       // On ne fait pas échouer l'inscription si la notification échoue
     }
     

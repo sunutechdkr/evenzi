@@ -5,6 +5,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sendCheckinConfirmationEmail } from "@/lib/checkinEmail";
 import { logger, logCheckIn, logHttpError } from "@/lib/logger";
+import { 
+  checkCheckinMilestone, 
+  createCheckinMilestoneNotification,
+  createDigitalBadgeNotification 
+} from "@/lib/notifications";
 
 // Schema for QR code check-in
 const qrCheckInSchema = z.object({
@@ -311,6 +316,48 @@ export async function POST(request: Request) {
       logCheckIn('success', eventId, updatedRegistration.id, { 
         checkInTime: updatedRegistration.checkInTime 
       });
+
+      // Vérifier les paliers de check-in et envoyer les notifications appropriées
+      try {
+        // 1. Vérifier si on a atteint un palier de check-in pour l'organisateur
+        const milestoneCheck = await checkCheckinMilestone(eventId);
+        
+        if (milestoneCheck.shouldNotify && milestoneCheck.milestone && milestoneCheck.count) {
+          // Récupérer l'organisateur de l'événement
+          const eventWithOrganizer = await prisma.event.findUnique({
+            where: { id: eventId },
+            select: { userId: true }
+          });
+          
+          if (eventWithOrganizer) {
+            await createCheckinMilestoneNotification(
+              eventWithOrganizer.userId,
+              eventId,
+              milestoneCheck.count,
+              milestoneCheck.milestone
+            );
+            console.log(`🎉 Notification de palier check-in créée: ${milestoneCheck.count} participants ont fait leur check-in`);
+          }
+        }
+
+        // 2. Créer une notification de badge digital pour le participant
+        // Rechercher l'ID utilisateur du participant s'il existe
+        const participantUser = await prisma.user.findFirst({
+          where: { email: updatedRegistration.email },
+          select: { id: true }
+        });
+
+        if (participantUser) {
+          await createDigitalBadgeNotification(
+            participantUser.id,
+            eventId
+          );
+          console.log(`🎫 Notification de badge digital créée pour ${updatedRegistration.firstName} ${updatedRegistration.lastName}`);
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Erreur lors de la création des notifications de check-in:', notificationError);
+        // On ne fait pas échouer le check-in si les notifications échouent
+      }
     
       // Envoi de l'email de confirmation de check-in
       if (updatedRegistration) {

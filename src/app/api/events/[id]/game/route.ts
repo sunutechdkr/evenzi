@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
-import { createGameNotification } from "@/lib/notifications";
+import { 
+  createGameNotification, 
+  createGamificationPointsNotification 
+} from "@/lib/notifications";
 
 const prisma = new PrismaClient();
 
@@ -109,15 +112,66 @@ export async function POST(
     // Mettre à jour ou créer le score total de l'utilisateur
     await updateUserEventScore(eventId, participantId);
 
-    // Créer une notification pour les points gagnés
+    // Créer une notification optimisée pour les points gagnés
     try {
-      await createGameNotification(
-        participant.userId || participantId, // ID de l'utilisateur qui a gagné les points
-        eventId,
-        points,
-        action,
-        gameAction.id
-      );
+      // Pour les actions liées aux sessions, utiliser la nouvelle notification avec nom de session
+      if (action === 'participation_session' && relatedEntityId) {
+        // Récupérer le nom de la session
+        const session = await prisma.event_sessions.findUnique({
+          where: { id: relatedEntityId },
+          select: { title: true }
+        });
+
+        if (session) {
+          // Rechercher l'utilisateur correspondant au participant
+          const participantUser = await prisma.user.findFirst({
+            where: { email: participant.email },
+            select: { id: true }
+          });
+
+          if (participantUser) {
+            await createGamificationPointsNotification(
+              participantUser.id,
+              eventId,
+              points,
+              session.title,
+              action
+            );
+          }
+        } else {
+          // Fallback vers l'ancienne notification si pas de session trouvée
+          const participantUser = await prisma.user.findFirst({
+            where: { email: participant.email },
+            select: { id: true }
+          });
+
+          if (participantUser) {
+            await createGameNotification(
+              participantUser.id,
+              eventId,
+              points,
+              action,
+              gameAction.id
+            );
+          }
+        }
+      } else {
+        // Pour les autres actions, utiliser l'ancienne notification
+        const participantUser = await prisma.user.findFirst({
+          where: { email: participant.email },
+          select: { id: true }
+        });
+
+        if (participantUser) {
+          await createGameNotification(
+            participantUser.id,
+            eventId,
+            points,
+            action,
+            gameAction.id
+          );
+        }
+      }
     } catch (notificationError) {
       console.error('Erreur lors de la création de la notification de gamification:', notificationError);
       // Ne pas faire échouer la requête si la notification échoue
@@ -146,16 +200,11 @@ async function checkDuplicateAction(
   action: string,
   relatedEntityId?: string
 ): Promise<boolean> {
-  const whereClause: {
-    eventId: string;
-    participantId: string;
-    action: string;
-    relatedEntityId?: string;
-  } = {
+  const whereClause = {
     eventId,
     participantId,
-    action,
-  };
+    action: action as any, // Cast temporaire pour éviter l'erreur TypeScript
+  } as any;
 
   // Pour certaines actions, on peut permettre plusieurs occurrences
   switch (action) {

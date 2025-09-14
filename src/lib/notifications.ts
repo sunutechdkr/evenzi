@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { NotificationType, NotificationPriority } from '@prisma/client';
+import type { NotificationType, NotificationPriority } from '@prisma/client';
 
 export interface CreateNotificationData {
   userId: string;
@@ -16,7 +16,7 @@ export interface CreateNotificationData {
   entityId?: string;
   entityType?: string;
   actionUrl?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface NotificationFilters {
@@ -403,4 +403,422 @@ export async function createSystemNotification(
     priority: priority,
     actionUrl: actionUrl,
   });
+}
+
+// ============================================================================
+// NOUVELLES FONCTIONS DE NOTIFICATION OPTIMISÉES
+// ============================================================================
+
+/**
+ * Notification de palier d'inscription (100, 250, 500, 1000, 2000, 5000)
+ */
+export async function createRegistrationMilestoneNotification(
+  organizerId: string,
+  eventId: string,
+  eventName: string,
+  milestone: number
+) {
+  return createNotification({
+    userId: organizerId,
+    title: 'Félicitations ! 🎉',
+    message: `Votre événement "${eventName}" vient d'atteindre ${milestone} inscriptions`,
+    type: 'EVENT',
+    priority: 'HIGH',
+    eventId: eventId,
+    entityType: 'milestone',
+    actionUrl: `/dashboard/events/${eventId}/participants`,
+    metadata: { milestone, type: 'registration_milestone' },
+  });
+}
+
+/**
+ * Notification de suivi check-in en temps réel (par paliers)
+ */
+export async function createCheckinMilestoneNotification(
+  organizerId: string,
+  eventId: string,
+  checkinCount: number,
+  milestone: number
+) {
+  return createNotification({
+    userId: organizerId,
+    title: 'Suivi check-in 📊',
+    message: `${checkinCount} participants ont déjà effectué leur check-in.`,
+    type: 'EVENT',
+    priority: 'NORMAL',
+    eventId: eventId,
+    entityType: 'checkin_milestone',
+    actionUrl: `/dashboard/events/${eventId}/participants`,
+    metadata: { checkinCount, milestone, type: 'checkin_milestone' },
+  });
+}
+
+/**
+ * Notification de remplissage de session
+ */
+export async function createSessionCapacityNotification(
+  organizerId: string,
+  eventId: string,
+  sessionName: string,
+  sessionId: string,
+  capacityPercentage: number
+) {
+  return createNotification({
+    userId: organizerId,
+    title: 'Session bientôt complète ⚠️',
+    message: `La session "${sessionName}" a atteint ${capacityPercentage}% de remplissage.`,
+    type: 'SESSION',
+    priority: 'HIGH',
+    eventId: eventId,
+    entityId: sessionId,
+    entityType: 'session',
+    actionUrl: `/dashboard/events/${eventId}/sessions/${sessionId}`,
+    metadata: { capacityPercentage, type: 'session_capacity' },
+  });
+}
+
+/**
+ * Notification d'alerte quota email
+ */
+export async function createEmailQuotaAlertNotification(
+  organizerId: string,
+  eventId: string,
+  eventName: string,
+  quotaUsed: number,
+  quotaLimit: number
+) {
+  const percentage = Math.round((quotaUsed / quotaLimit) * 100);
+  
+  return createNotification({
+    userId: organizerId,
+    title: 'Quota d\'emails critique 🚨',
+    message: `Votre quota d'emails pour l'événement "${eventName}" est presque atteint (${percentage}%).`,
+    type: 'EMAIL',
+    priority: 'URGENT',
+    eventId: eventId,
+    entityType: 'email_quota',
+    actionUrl: `/dashboard/events/${eventId}/communication`,
+    metadata: { quotaUsed, quotaLimit, percentage, type: 'email_quota_alert' },
+  });
+}
+
+/**
+ * Notification badge digital pour participant
+ */
+export async function createDigitalBadgeNotification(
+  participantId: string,
+  eventId: string
+) {
+  return createNotification({
+    userId: participantId,
+    title: 'Badge digital disponible 🎫',
+    message: 'Votre badge digital est consultable dans l\'application, présentez-vous au comptoir pour scanner et le récupérer.',
+    type: 'BADGE',
+    priority: 'HIGH',
+    eventId: eventId,
+    entityType: 'digital_badge',
+    actionUrl: `/dashboard/user/events/${eventId}/badge`,
+    metadata: { type: 'digital_badge_ready' },
+  });
+}
+
+/**
+ * Notification demande de rendez-vous pour participant
+ */
+export async function createAppointmentRequestNotification(
+  recipientId: string,
+  eventId: string,
+  requesterName: string,
+  appointmentId: string
+) {
+  return createNotification({
+    userId: recipientId,
+    title: 'Demande de rendez-vous 🤝',
+    message: `Vous avez reçu une nouvelle demande de rendez-vous de ${requesterName}.`,
+    type: 'APPOINTMENT',
+    priority: 'HIGH',
+    eventId: eventId,
+    entityId: appointmentId,
+    entityType: 'appointment',
+    actionUrl: `/dashboard/user/events/${eventId}/rendez-vous`,
+    metadata: { requesterName, type: 'appointment_request' },
+  });
+}
+
+/**
+ * Notification confirmation de rendez-vous pour participant
+ */
+export async function createAppointmentConfirmationNotification(
+  participantId: string,
+  eventId: string,
+  otherParticipantName: string,
+  appointmentTime: string,
+  appointmentLocation: string,
+  appointmentId: string
+) {
+  return createNotification({
+    userId: participantId,
+    title: 'Rendez-vous confirmé ✅',
+    message: `Votre rendez-vous avec ${otherParticipantName} est confirmé pour ${appointmentTime} à ${appointmentLocation}.`,
+    type: 'APPOINTMENT',
+    priority: 'NORMAL',
+    eventId: eventId,
+    entityId: appointmentId,
+    entityType: 'appointment',
+    actionUrl: `/dashboard/user/events/${eventId}/rendez-vous`,
+    metadata: { otherParticipantName, appointmentTime, appointmentLocation, type: 'appointment_confirmed' },
+  });
+}
+
+/**
+ * Notification points gamification pour participant
+ */
+export async function createGamificationPointsNotification(
+  participantId: string,
+  eventId: string,
+  points: number,
+  sessionName: string,
+  action: string
+) {
+  return createNotification({
+    userId: participantId,
+    title: 'Points gagnés ! 🎮',
+    message: `+${points} points pour votre check-in à la session "${sessionName}". Continuez à accumuler des points !`,
+    type: 'GAME',
+    priority: 'LOW',
+    eventId: eventId,
+    entityType: 'gamification',
+    actionUrl: `/dashboard/user/events/${eventId}`,
+    metadata: { points, sessionName, action, type: 'gamification_points' },
+  });
+}
+
+/**
+ * Notification rappel de session pour participant
+ */
+export async function createSessionReminderNotification(
+  participantId: string,
+  eventId: string,
+  sessionName: string,
+  sessionId: string,
+  minutesUntilStart: number
+) {
+  return createNotification({
+    userId: participantId,
+    title: 'Rappel d\'agenda ⏰',
+    message: `Votre prochaine session : "${sessionName}" commence dans ${minutesUntilStart}mn.`,
+    type: 'SESSION',
+    priority: 'HIGH',
+    eventId: eventId,
+    entityId: sessionId,
+    entityType: 'session',
+    actionUrl: `/dashboard/user/events/${eventId}/sessions`,
+    metadata: { sessionName, minutesUntilStart, type: 'session_reminder' },
+  });
+}
+
+// ============================================================================
+// UTILITAIRES POUR LA GESTION DES PALIERS
+// ============================================================================
+
+/**
+ * Paliers de notifications d'inscription
+ */
+export const REGISTRATION_MILESTONES = [100, 250, 500, 1000, 2000, 5000];
+
+/**
+ * Paliers de notifications de check-in
+ */
+export const CHECKIN_MILESTONES = [100, 300, 500, 1000, 2000, 5000];
+
+/**
+ * Vérifier si un palier d'inscription doit déclencher une notification
+ */
+export async function checkRegistrationMilestone(eventId: string): Promise<{ shouldNotify: boolean, milestone?: number, count?: number }> {
+  try {
+    // Compter le nombre total d'inscriptions pour cet événement
+    const registrationCount = await prisma.registration.count({
+      where: { eventId }
+    });
+
+    // Vérifier si on a atteint un nouveau palier
+    for (const milestone of REGISTRATION_MILESTONES) {
+      if (registrationCount === milestone) {
+        // Vérifier qu'on n'a pas déjà envoyé cette notification
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            eventId,
+            type: 'EVENT',
+            metadata: {
+              path: ['type'],
+              equals: 'registration_milestone'
+            }
+          }
+        });
+
+        if (!existingNotification || !existingNotification.metadata || 
+            (existingNotification.metadata as Record<string, unknown>).milestone !== milestone) {
+          return { shouldNotify: true, milestone, count: registrationCount };
+        }
+      }
+    }
+
+    return { shouldNotify: false };
+  } catch (error) {
+    console.error('Erreur lors de la vérification du palier d\'inscription:', error);
+    return { shouldNotify: false };
+  }
+}
+
+/**
+ * Vérifier si un palier de check-in doit déclencher une notification
+ */
+export async function checkCheckinMilestone(eventId: string): Promise<{ shouldNotify: boolean, milestone?: number, count?: number }> {
+  try {
+    // Compter le nombre de participants qui ont fait leur check-in
+    const checkinCount = await prisma.registration.count({
+      where: { 
+        eventId,
+        checkedIn: true 
+      }
+    });
+
+    // Vérifier si on a atteint un nouveau palier
+    for (const milestone of CHECKIN_MILESTONES) {
+      if (checkinCount === milestone) {
+        // Vérifier qu'on n'a pas déjà envoyé cette notification
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            eventId,
+            type: 'EVENT',
+            metadata: {
+              path: ['type'],
+              equals: 'checkin_milestone'
+            }
+          }
+        });
+
+        if (!existingNotification || !existingNotification.metadata || 
+            (existingNotification.metadata as Record<string, unknown>).milestone !== milestone) {
+          return { shouldNotify: true, milestone, count: checkinCount };
+        }
+      }
+    }
+
+    return { shouldNotify: false };
+  } catch (error) {
+    console.error('Erreur lors de la vérification du palier de check-in:', error);
+    return { shouldNotify: false };
+  }
+}
+
+/**
+ * Vérifier le pourcentage de remplissage d'une session
+ */
+export async function checkSessionCapacity(sessionId: string): Promise<{ shouldNotify: boolean, percentage?: number, sessionName?: string }> {
+  try {
+    // Récupérer les informations de la session
+    const session = await prisma.event_sessions.findUnique({
+      where: { id: sessionId },
+      select: {
+        name: true,
+        maxParticipants: true,
+        _count: {
+          select: {
+            SessionParticipant: true
+          }
+        }
+      }
+    });
+
+    if (!session || !session.maxParticipants) {
+      return { shouldNotify: false };
+    }
+
+    const currentParticipants = session._count.SessionParticipant;
+    const percentage = Math.round((currentParticipants / session.maxParticipants) * 100);
+
+    // Notifier à 80% de remplissage
+    if (percentage >= 80 && percentage < 85) {
+      // Vérifier qu'on n'a pas déjà envoyé cette notification
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          entityId: sessionId,
+          type: 'SESSION',
+          metadata: {
+            path: ['type'],
+            equals: 'session_capacity'
+          }
+        }
+      });
+
+      if (!existingNotification) {
+        return { shouldNotify: true, percentage, sessionName: session.name };
+      }
+    }
+
+    return { shouldNotify: false };
+  } catch (error) {
+    console.error('Erreur lors de la vérification de la capacité de session:', error);
+    return { shouldNotify: false };
+  }
+}
+
+/**
+ * Vérifier le quota d'emails d'un événement (simulation - à adapter selon votre logique)
+ */
+export async function checkEmailQuota(eventId: string): Promise<{ shouldNotify: boolean, quotaUsed?: number, quotaLimit?: number, eventName?: string }> {
+  try {
+    // Récupérer l'événement
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { name: true }
+    });
+
+    if (!event) {
+      return { shouldNotify: false };
+    }
+
+    // Compter les emails envoyés pour cet événement
+    const emailsSent = await prisma.emailCampaign.aggregate({
+      where: { eventId },
+      _sum: {
+        recipientCount: true
+      }
+    });
+
+    const quotaUsed = emailsSent._sum.recipientCount || 0;
+    const quotaLimit = 10000; // Limite par défaut - à adapter selon votre plan
+    const percentage = (quotaUsed / quotaLimit) * 100;
+
+    // Notifier à 90% du quota
+    if (percentage >= 90) {
+      // Vérifier qu'on n'a pas déjà envoyé cette notification récemment (dans les 24h)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          eventId,
+          type: 'EMAIL',
+          metadata: {
+            path: ['type'],
+            equals: 'email_quota_alert'
+          },
+          createdAt: {
+            gte: yesterday
+          }
+        }
+      });
+
+      if (!existingNotification) {
+        return { shouldNotify: true, quotaUsed, quotaLimit, eventName: event.name };
+      }
+    }
+
+    return { shouldNotify: false };
+  } catch (error) {
+    console.error('Erreur lors de la vérification du quota d\'emails:', error);
+    return { shouldNotify: false };
+  }
 }

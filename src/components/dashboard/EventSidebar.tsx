@@ -24,6 +24,9 @@ import {
   TrophyIcon,
 } from "@heroicons/react/24/outline";
 import Logo from "@/components/ui/Logo";
+import { ParticipantNotificationList } from '@/components/notifications/ParticipantNotificationList';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useSession } from 'next-auth/react';
 import { UserProfile } from "@/components/dashboard/UserProfile";
 
 // Define types for menu items
@@ -49,11 +52,20 @@ type MenuItem = {
  */
 export function NotificationCenter({ 
   isExpanded = true, 
-  onToggle 
+  onToggle,
+  eventId 
 }: { 
   isExpanded: boolean, 
-  onToggle: (show: boolean) => void 
+  onToggle: (show: boolean) => void,
+  eventId?: string 
 }) {
+  const { data: session } = useSession();
+  const { unreadCount } = useNotifications({ eventId });
+
+  if (!session?.user?.id) {
+    return null;
+  }
+
   return (
     <>
       {/* Bouton de notification dans le sidebar */}
@@ -67,7 +79,11 @@ export function NotificationCenter({
               <BellIcon className="h-5 w-5 mr-2 text-[#81B441]" />
               <span className="text-sm text-white">Notifications</span>
             </div>
-            <span className="bg-[#81B441] text-white text-xs font-bold px-2 py-1 rounded-full">3</span>
+            {unreadCount > 0 && (
+              <span className="bg-[#81B441] text-white text-xs font-bold px-2 py-1 rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         ) : (
           <div className="flex justify-center">
@@ -76,7 +92,11 @@ export function NotificationCenter({
               className="relative p-2 text-gray-300 hover:text-white rounded-full hover:bg-gray-700 transition-all duration-300"
             >
               <BellIcon className="h-6 w-6" />
-              <span className="absolute top-0 right-0 h-3 w-3 bg-[#81B441] rounded-full border-2 border-gray-800 animate-pulse"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-[#81B441] text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-gray-800">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -90,11 +110,18 @@ export function NotificationCenter({
  */
 export function NotificationPanel({ 
   show, 
-  onClose 
+  onClose,
+  eventId 
 }: { 
   show: boolean, 
-  onClose: () => void 
+  onClose: () => void,
+  eventId?: string 
 }) {
+  const { data: session } = useSession();
+  
+  if (!session?.user?.id) {
+    return null;
+  }
   return (
     <>
       {/* Overlay */}
@@ -113,11 +140,6 @@ export function NotificationPanel({
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-white/10 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white flex items-center">
-              <BellIcon className="h-5 w-5 mr-2 text-[#81B441]" />
-              Notifications
-              <span className="ml-2 bg-[#81B441] text-white text-xs font-bold px-2 py-1 rounded-full">3</span>
-            </h2>
             <button 
               onClick={onClose}
               className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
@@ -127,33 +149,10 @@ export function NotificationPanel({
           </div>
           
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-3">
-              <div className="notification-item bg-gray-800 hover:bg-gray-700 rounded-md p-3 cursor-pointer transition-colors duration-200 transform hover:translate-x-1 border-l-2 border-[#81B441]">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm text-white font-medium">Nouvel inscrit</p>
-                  <span className="text-xs text-gray-400">5 min</span>
-                </div>
-                <p className="text-sm text-[#81B441] font-semibold mt-1">Amadou Diallo</p>
-                <p className="text-xs text-gray-400 mt-1">Un nouveau participant s&apos;est inscrit à votre événement.</p>
-              </div>
-              
-              <div className="notification-item bg-gray-800 hover:bg-gray-700 rounded-md p-3 cursor-pointer transition-colors duration-200 transform hover:translate-x-1 border-l-2 border-[#81B441]">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm text-white font-medium">Mise à jour de l&apos;agenda</p>
-                  <span className="text-xs text-gray-400">2h</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Une activité a été modifiée dans l&apos;agenda de l&apos;événement.</p>
-              </div>
-              
-              <div className="notification-item bg-gray-800 hover:bg-gray-700 rounded-md p-3 cursor-pointer transition-colors duration-200 transform hover:translate-x-1 border-l-2 border-[#81B441]">
-                <div className="flex justify-between items-start">
-                  <p className="text-sm text-white font-medium">Nouvel exposant</p>
-                  <span className="text-xs text-gray-400">Hier</span>
-                </div>
-                <p className="text-sm text-[#81B441] font-semibold mt-1">Tech Solutions</p>
-                <p className="text-xs text-gray-400 mt-1">Un nouvel exposant a été ajouté à votre événement.</p>
-              </div>
-            </div>
+            <ParticipantNotificationList 
+              userId={session.user.id} 
+              eventId={eventId}
+            />
           </div>
           
           <div className="p-4 border-t border-white/10">
@@ -236,7 +235,6 @@ export function EventSidebar({
       name: "Communication", 
       href: `${baseUrl}/communication`, 
       icon: EnvelopeIcon,
-  TicketIcon,
     },
     { 
       name: "Rendez-vous", 
@@ -358,7 +356,8 @@ export function EventSidebar({
           {/* Centre de notifications */}
           <NotificationCenter 
             isExpanded={isExpanded} 
-            onToggle={(show) => setShowNotifications(show)} 
+            onToggle={(show) => setShowNotifications(show)}
+            eventId={eventId}
           />
           
           {/* Navigation principale */}
@@ -462,7 +461,11 @@ export function EventSidebar({
       </aside>
       
       {/* Panneau de notifications */}
-      <NotificationPanel show={showNotifications} onClose={() => setShowNotifications(false)} />
+      <NotificationPanel 
+        show={showNotifications} 
+        onClose={() => setShowNotifications(false)}
+        eventId={eventId}
+      />
     </>
   );
 } 

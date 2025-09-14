@@ -1,6 +1,6 @@
 /**
- * Composant NotificationList - Liste des notifications avec filtres
- * Interface moderne avec Shadcn/ui
+ * Composant ParticipantNotificationList - Liste des notifications simplifiée pour les participants
+ * Interface épurée avec seulement les filtres "Toutes" et "Non lues"
  */
 
 'use client';
@@ -9,8 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { NotificationItem } from './NotificationItem';
 import { 
   BellIcon, 
-  CheckIcon, 
-  FunnelIcon,
+  CheckIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { NotificationType } from '@prisma/client';
@@ -34,16 +33,16 @@ interface Notification {
   metadata?: any;
 }
 
-interface NotificationListProps {
+interface ParticipantNotificationListProps {
   userId: string;
   eventId?: string;
   className?: string;
 }
 
-export function NotificationList({ userId, eventId, className }: NotificationListProps) {
+export function ParticipantNotificationList({ userId, eventId, className }: ParticipantNotificationListProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread' | NotificationType>('all');
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
   // Charger les notifications
@@ -54,8 +53,6 @@ export function NotificationList({ userId, eventId, className }: NotificationLis
       const params = new URLSearchParams();
       if (filter === 'unread') {
         params.append('isRead', 'false');
-      } else if (filter !== 'all') {
-        params.append('type', filter);
       }
       if (eventId) {
         params.append('eventId', eventId);
@@ -155,8 +152,7 @@ export function NotificationList({ userId, eventId, className }: NotificationLis
   // Filtrer les notifications
   const filteredNotifications = notifications.filter(notif => {
     if (filter === 'unread') return !notif.isRead;
-    if (filter === 'all') return true;
-    return notif.type === filter;
+    return true; // 'all'
   });
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -181,7 +177,7 @@ export function NotificationList({ userId, eventId, className }: NotificationLis
 
   return (
     <div className={cn('space-y-4', className)}>
-      {/* En-tête avec filtres et actions */}
+      {/* En-tête avec actions */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h3 className="text-lg font-semibold text-white flex items-center">
@@ -218,7 +214,7 @@ export function NotificationList({ userId, eventId, className }: NotificationLis
         </div>
       </div>
 
-      {/* Filtres simplifiés pour organisateurs/staff */}
+      {/* Filtres simplifiés pour participants */}
       <div className="flex gap-2">
         <button
           onClick={() => setFilter('all')}

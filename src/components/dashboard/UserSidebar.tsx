@@ -18,6 +18,9 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import Logo from "@/components/ui/Logo";
+import { ParticipantNotificationList } from '@/components/notifications/ParticipantNotificationList';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useSession } from 'next-auth/react';
 
 import { UserProfile } from "@/components/dashboard/UserProfile";
 // Define types for menu items
@@ -33,11 +36,19 @@ type MenuItem = {
  */
 export function UserNotificationCenter({ 
   isExpanded = true, 
-  onToggle 
+  onToggle,
+  eventId 
 }: { 
   isExpanded: boolean, 
-  onToggle: (show: boolean) => void 
+  onToggle: (show: boolean) => void,
+  eventId?: string 
 }) {
+  const { data: session } = useSession();
+  const { unreadCount } = useNotifications({ eventId });
+
+  if (!session?.user?.id) {
+    return null;
+  }
   return (
     <>
       {/* Bouton de notification dans le sidebar */}
@@ -51,7 +62,11 @@ export function UserNotificationCenter({
               <BellIcon className="h-5 w-5 mr-2 text-[#81B441]" />
               <span className="text-sm text-white">Notifications</span>
             </div>
-            <span className="bg-[#81B441] text-white text-xs font-bold px-2 py-1 rounded-full">2</span>
+            {unreadCount > 0 && (
+              <span className="bg-[#81B441] text-white text-xs font-bold px-2 py-1 rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         ) : (
           <div className="flex justify-center">
@@ -60,7 +75,11 @@ export function UserNotificationCenter({
               className="relative p-2 text-gray-300 hover:text-white rounded-full hover:bg-gray-700 transition-all duration-300"
             >
               <BellIcon className="h-6 w-6" />
-              <span className="absolute top-0 right-0 h-3 w-3 bg-[#81B441] rounded-full border-2 border-gray-800 animate-pulse"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-[#81B441] text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-gray-800">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
           </div>
         )}

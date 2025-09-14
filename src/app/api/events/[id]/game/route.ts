@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { createGameNotification } from "@/lib/notifications";
 
 const prisma = new PrismaClient();
 
@@ -107,6 +108,20 @@ export async function POST(
 
     // Mettre à jour ou créer le score total de l'utilisateur
     await updateUserEventScore(eventId, participantId);
+
+    // Créer une notification pour les points gagnés
+    try {
+      await createGameNotification(
+        participant.userId || participantId, // ID de l'utilisateur qui a gagné les points
+        eventId,
+        points,
+        action,
+        gameAction.id
+      );
+    } catch (notificationError) {
+      console.error('Erreur lors de la création de la notification de gamification:', notificationError);
+      // Ne pas faire échouer la requête si la notification échoue
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { generateShortCode } from "@/lib/shortcodes";
 import { sendRegistrationConfirmationEmail } from "@/lib/registrationEmail";
+import { createRegistrationNotification } from "@/lib/notifications";
 
 // POST /api/register - Create a new registration without authentication
 export async function POST(request: Request) {
@@ -20,6 +21,14 @@ export async function POST(request: Request) {
     // Check if the event exists
     const event = await prisma.event.findUnique({
       where: { id: eventId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
     });
     
     if (!event) {
@@ -136,6 +145,20 @@ export async function POST(request: Request) {
     } catch (emailError) {
       console.error('⚠️ Erreur lors de l\'envoi de l\'email de confirmation d\'inscription:', emailError);
       // On ne fait pas échouer l'inscription si l'email échoue
+    }
+
+    // Créer une notification pour l'organisateur de l'événement
+    try {
+      await createRegistrationNotification(
+        event.user.id, // ID de l'organisateur
+        eventId,
+        `${firstName} ${lastName}`,
+        registration.id
+      );
+      console.log(`🔔 Notification d'inscription créée pour l'organisateur de l'événement ${event.name}`);
+    } catch (notificationError) {
+      console.error('⚠️ Erreur lors de la création de la notification d\'inscription:', notificationError);
+      // On ne fait pas échouer l'inscription si la notification échoue
     }
     
     return NextResponse.json(

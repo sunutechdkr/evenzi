@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/resend';
+import { createEmailCampaignNotification } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +155,21 @@ export async function POST(
           }
         });
       }
+    }
+
+    // Créer une notification pour l'organisateur
+    try {
+      await createEmailCampaignNotification(
+        session.user.id,
+        eventId,
+        campaign.name,
+        sendType === 'immediate' ? emailsSent : recipients.length,
+        campaign.id
+      );
+      console.log(`🔔 Notification de campagne email créée pour l'utilisateur ${session.user.id}`);
+    } catch (notificationError) {
+      console.error('⚠️ Erreur lors de la création de la notification de campagne:', notificationError);
+      // On ne fait pas échouer l'envoi si la notification échoue
     }
 
     return NextResponse.json({

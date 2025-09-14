@@ -7,10 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { 
-  getUserNotifications, 
-  createNotification, 
-  getUnreadNotificationsCount 
+  createNotification
 } from '@/lib/notifications';
 import { NotificationType, NotificationPriority } from '@prisma/client';
 
@@ -19,7 +18,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Non autorisé' },
         { status: 401 }
@@ -30,35 +29,48 @@ export async function GET(request: NextRequest) {
     const isRead = searchParams.get('isRead');
     const type = searchParams.get('type') as NotificationType;
     const eventId = searchParams.get('eventId');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const countOnly = searchParams.get('countOnly') === 'true';
+    const take = parseInt(searchParams.get('take') || '50', 10);
+    const skip = parseInt(searchParams.get('skip') || '0', 10);
 
-    // Si on veut juste le nombre de notifications non lues
-    if (countOnly) {
-      const count = await getUnreadNotificationsCount(session.user.id, eventId || undefined);
-      return NextResponse.json({ count });
-    }
+    try {
+      // Construire la clause where de manière sûre
+      const where: any = { userId: session.user.id };
 
-    const filters = {
-      userId: session.user.id,
-      isRead: isRead === 'true' ? true : isRead === 'false' ? false : undefined,
-      type: type || undefined,
-      eventId: eventId || undefined,
-      limit,
-      offset,
-    };
-
-    const notifications = await getUserNotifications(filters);
-
-    return NextResponse.json({
-      notifications,
-      pagination: {
-        limit,
-        offset,
-        total: notifications.length,
+      if (isRead === 'true') {
+        where.isRead = true;
+      } else if (isRead === 'false') {
+        where.isRead = false;
       }
-    });
+
+      if (type && Object.values(NotificationType).includes(type)) {
+        where.type = type;
+      }
+
+      if (eventId) {
+        where.eventId = eventId;
+      }
+
+      // Récupérer les notifications avec gestion d'erreur robuste
+      const notifications = await prisma.notification.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take,
+        skip,
+      });
+
+      // Compter les notifications non lues
+      const unreadCount = await prisma.notification.count({
+        where: { userId: session.user.id, isRead: false, eventId: eventId || undefined },
+      });
+
+      return NextResponse.json({ notifications, unreadCount });
+    } catch (dbError) {
+      console.error('Erreur base de données lors de la récupération des notifications:', dbError);
+      // Retourner des valeurs par défaut si la table n'existe pas encore
+      return NextResponse.json({ notifications: [], unreadCount: 0 });
+    }
 
   } catch (error) {
     console.error('Erreur lors de la récupération des notifications:', error);

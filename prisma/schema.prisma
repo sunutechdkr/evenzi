@@ -8,26 +8,26 @@ datasource db {
 }
 
 model User {
-  id            String            @id @default(cuid())
+  id            String             @id @default(cuid())
   name          String?
-  email         String?           @unique
-  emailVerified DateTime?         @map("email_verified")
+  email         String?            @unique
+  emailVerified DateTime?          @map("email_verified")
   image         String?
   password      String?
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  permissions   String[]          @default([])
-  role          UserRole          @default(USER)
-  lastLogin     DateTime?         @map("last_login")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  permissions   String[]           @default([])
+  role          UserRole           @default(USER)
+  lastLogin     DateTime?          @map("last_login")
   phone         String?
-  plan          UserPlan          @default(STARTER)
+  plan          UserPlan           @default(STARTER)
   accounts      Account[]
   events        Event[]
+  suggestedFor  MatchSuggestion[]  @relation("SuggestedUsers")
+  suggestions   MatchSuggestion[]  @relation("UserSuggestions")
+  notifications Notification[]
   sessions      Session[]
   matchProfiles UserMatchProfile[]
-  suggestions   MatchSuggestion[] @relation("UserSuggestions")
-  suggestedFor  MatchSuggestion[] @relation("SuggestedUsers")
-  notifications Notification[]
 
   @@map("users")
 }
@@ -100,15 +100,15 @@ model Event {
   emailTemplates    EmailTemplate[]
   event_sessions    event_sessions[]
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  games             Game[]
+  matchSuggestions  MatchSuggestion[]
+  notifications     Notification[]
   participantBadges ParticipantBadge[]
   registrations     Registration[]
   sponsors          Sponsor[]
   tickets           Ticket[]
-  games             Game[]
-  notifications     Notification[]
   userEventScores   UserEventScore[]
   matchProfiles     UserMatchProfile[]
-  matchSuggestions  MatchSuggestion[]
 
   @@map("events")
 }
@@ -121,7 +121,6 @@ model Registration {
   phone                String
   type                 String               @default("PARTICIPANT")
   eventId              String               @map("event_id")
-  ticketId             String?              @map("ticket_id")
   qrCode               String               @unique @map("qr_code")
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
@@ -130,36 +129,37 @@ model Registration {
   shortCode            String?              @unique @map("short_code")
   company              String?              @map("company")
   jobTitle             String?              @map("job_title")
+  ticketId             String?              @map("ticket_id")
   receivedAppointments Appointment[]        @relation("RecipientRelation")
   sentAppointments     Appointment[]        @relation("RequesterRelation")
+  games                Game[]
   participantBadges    ParticipantBadge[]
   event                Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   ticket               Ticket?              @relation(fields: [ticketId], references: [id])
   sessions             SessionParticipant[]
-  games                Game[]
   userEventScores      UserEventScore[]
 
   @@map("registrations")
 }
 
 model Ticket {
-  id            String            @id @default(cuid())
+  id            String           @id @default(cuid())
   name          String
   description   String?
-  price         Decimal           @default(0)
-  currency      String            @default("XOF")
-  quantity      Int?              // null = illimité
-  sold          Int               @default(0)
-  status        TicketStatus      @default(ACTIVE)
-  visibility    TicketVisibility  @default(VISIBLE)
-  validFrom     DateTime          @map("valid_from")
-  validUntil    DateTime          @map("valid_until")
-  group         String            @default("Attendees")
-  eventId       String            @map("event_id")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  price         Decimal          @default(0)
+  quantity      Int?
+  sold          Int              @default(0)
+  status        TicketStatus     @default(ACTIVE)
+  visibility    TicketVisibility @default(VISIBLE)
+  validFrom     DateTime         @map("valid_from")
+  validUntil    DateTime         @map("valid_until")
+  group         String           @default("Attendees")
+  eventId       String           @map("event_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  currency      String           @default("XOF")
   registrations Registration[]
+  event         Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@map("tickets")
 }
@@ -194,24 +194,17 @@ model Sponsor {
   level       SponsorLevel @default(GOLD)
   visible     Boolean      @default(true)
   eventId     String       @map("event_id")
-  
-  // Emplacement et coordonnées
-  location    String?      // Lieu dans l'événement ou numéro de stand
-  address     String?      // Adresse complète
-  phone       String?      // Téléphone fixe
-  mobile      String?      // Téléphone mobile
-  email       String?      // Email de contact
-  
-  // Réseaux sociaux
-  linkedinUrl String?      @map("linkedin_url")
-  twitterUrl  String?      @map("twitter_url") // X (ex-Twitter)
-  facebookUrl String?      @map("facebook_url") // Meta (Facebook)
-  
-  // Documents
-  documents   Json?        // Array de documents joints
-  
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
+  address     String?
+  documents   Json?
+  email       String?
+  facebookUrl String?      @map("facebook_url")
+  linkedinUrl String?      @map("linkedin_url")
+  location    String?
+  mobile      String?
+  phone       String?
+  twitterUrl  String?      @map("twitter_url")
   event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@map("sponsors")
@@ -376,16 +369,16 @@ model EmailLog {
 }
 
 model Game {
-  id               String       @id @default(cuid())
-  eventId          String       @map("event_id")
-  participantId    String       @map("participant_id")
-  action           GameAction
-  points           Int
-  actionDetails    String?      @map("action_details") // JSON pour stocker des détails spécifiques
-  relatedEntityId  String?      @map("related_entity_id") // ID de la session, du participant scanné, etc.
-  createdAt        DateTime     @default(now()) @map("created_at")
-  event            Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  participant      Registration @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  eventId         String       @map("event_id")
+  participantId   String       @map("participant_id")
+  action          GameAction
+  points          Int
+  actionDetails   String?      @map("action_details")
+  relatedEntityId String?      @map("related_entity_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  event           Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant     Registration @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@map("games")
 }
@@ -402,6 +395,74 @@ model UserEventScore {
 
   @@unique([eventId, participantId])
   @@map("user_event_scores")
+}
+
+model UserMatchProfile {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  eventId      String   @map("event_id")
+  headline     String?
+  bio          String?
+  interests    String[] @default([])
+  goals        String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  availability String[] @default([])
+  company      String?
+  jobTitle     String?  @map("job_title")
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@map("user_match_profiles")
+}
+
+model MatchSuggestion {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  suggestedId String   @map("suggested_id")
+  eventId     String   @map("event_id")
+  score       Float
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  suggested   User     @relation("SuggestedUsers", fields: [suggestedId], references: [id], onDelete: Cascade)
+  user        User     @relation("UserSuggestions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, suggestedId, eventId])
+  @@map("match_suggestions")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  body      String
+  userId    String           @map("user_id")
+  eventId   String?          @map("event_id")
+  data      Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+  type      NotificationType
+  readAt    DateTime?        @map("read_at")
+  event     Event?           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model notification_templates {
+  id         String   @id
+  name       String
+  type       String
+  title      String
+  message    String
+  priority   String   @default("MEDIUM")
+  channels   String[] @default(["IN_APP"])
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime
 }
 
 enum UserRole {
@@ -512,86 +573,12 @@ enum GameAction {
   APPOINTMENT_CONFIRMED
 }
 
-model UserMatchProfile {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  eventId     String   @map("event_id")
-  headline    String?
-  bio         String?
-  jobTitle    String?  @map("job_title")
-  company     String?
-  interests   String[] @default([])
-  goals       String[] @default([])
-  availability String[] @default([]) // Créneaux horaires de disponibilité
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, eventId])
-  @@map("user_match_profiles")
-}
-
-model MatchSuggestion {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  suggestedId String   @map("suggested_id")
-  eventId     String   @map("event_id")
-  score       Float
-  reason      String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  user        User     @relation("UserSuggestions", fields: [userId], references: [id], onDelete: Cascade)
-  suggested   User     @relation("SuggestedUsers", fields: [suggestedId], references: [id], onDelete: Cascade)
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, suggestedId, eventId])
-  @@map("match_suggestions")
-}
-
-model Notification {
-  id          String            @id @default(cuid())
-  userId      String            @map("user_id")
-  title       String
-  message     String
-  type        NotificationType
-  priority    NotificationPriority @default(NORMAL)
-  isRead      Boolean           @default(false) @map("is_read")
-  readAt      DateTime?         @map("read_at")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  
-  // Données contextuelles optionnelles
-  eventId     String?           @map("event_id")
-  entityId    String?           @map("entity_id") // ID de l'entité liée (registration, appointment, etc.)
-  entityType  String?           @map("entity_type") // Type d'entité (registration, appointment, etc.)
-  actionUrl   String?           @map("action_url") // URL d'action optionnelle
-  metadata    Json?             // Données supplémentaires en JSON
-  
-  // Relations
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event?            @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, isRead])
-  @@index([userId, createdAt])
-  @@index([eventId])
-  @@map("notifications")
-}
-
 enum NotificationType {
-  SYSTEM        // Notifications système
-  EVENT         // Événements (création, modification)
-  REGISTRATION  // Inscriptions
-  APPOINTMENT   // Rendez-vous
-  GAME          // Gamification
-  EMAIL         // Campagnes email
-  MATCHMAKING   // Suggestions de matchmaking
-  SESSION       // Sessions d'événement
-  BADGE         // Badges obtenus
-}
-
-enum NotificationPriority {
-  LOW
-  NORMAL
-  HIGH
-  URGENT
+  APPOINTMENT_REQUEST
+  APPOINTMENT_ACCEPTED
+  MESSAGE
+  SESSION_UPDATE
+  NEW_REGISTRATION
+  SPONSOR_UPDATE
+  SYSTEM
 }

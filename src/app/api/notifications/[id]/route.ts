@@ -7,10 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { 
-  markNotificationAsRead, 
-  deleteNotification 
-} from '@/lib/notifications';
+import { prisma } from '@/lib/prisma';
 
 // PUT /api/notifications/[id] - Marquer une notification comme lue
 export async function PUT(
@@ -20,7 +17,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Non autorisé' },
         { status: 401 }
@@ -28,22 +25,28 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const { action } = body;
+    const { isRead } = await request.json();
 
-    if (action === 'mark_read') {
-      const notification = await markNotificationAsRead(id, session.user.id);
-      
-      return NextResponse.json({
-        success: true,
-        notification,
+    try {
+      const notification = await prisma.notification.update({
+        where: {
+          id: id,
+          userId: session.user.id, // Ensure user owns the notification
+        },
+        data: {
+          isRead: isRead,
+          readAt: isRead ? new Date() : null,
+        },
       });
-    }
 
-    return NextResponse.json(
-      { error: 'Action non supportée' },
-      { status: 400 }
-    );
+      return NextResponse.json(notification);
+    } catch (dbError) {
+      console.error('Erreur base de données lors de la mise à jour de la notification:', dbError);
+      return NextResponse.json(
+        { error: 'Notification non trouvée ou non autorisée' },
+        { status: 404 }
+      );
+    }
 
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la notification:', error);
@@ -62,7 +65,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Non autorisé' },
         { status: 401 }
@@ -71,12 +74,25 @@ export async function DELETE(
 
     const { id } = await params;
     
-    const notification = await deleteNotification(id, session.user.id);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Notification supprimée avec succès',
-    });
+    try {
+      await prisma.notification.delete({
+        where: {
+          id: id,
+          userId: session.user.id, // Ensure user owns the notification
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Notification supprimée avec succès',
+      });
+    } catch (dbError) {
+      console.error('Erreur base de données lors de la suppression de la notification:', dbError);
+      return NextResponse.json(
+        { error: 'Notification non trouvée ou non autorisée' },
+        { status: 404 }
+      );
+    }
 
   } catch (error) {
     console.error('Erreur lors de la suppression de la notification:', error);

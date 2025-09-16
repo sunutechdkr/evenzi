@@ -51,7 +51,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       }
       params.append('limit', '50');
 
-      const response = await fetch(`/api/notifications?${params.toString()}`);
+      const response = await fetch(`/api/notifications-v2?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des notifications');
@@ -59,6 +59,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
       const data = await response.json();
       setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -72,16 +73,15 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   const loadUnreadCount = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      params.append('countOnly', 'true');
       if (eventId) {
         params.append('eventId', eventId);
       }
 
-      const response = await fetch(`/api/notifications?${params.toString()}`);
+      const response = await fetch(`/api/notifications-v2?${params.toString()}`);
       
       if (response.ok) {
         const data = await response.json();
-        setUnreadCount(data.count || 0);
+        setUnreadCount(data.unreadCount || 0);
       }
     } catch (err) {
       console.error('Erreur lors du chargement du compteur:', err);
@@ -91,12 +91,12 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Marquer une notification comme lue
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
+      const response = await fetch(`/api/notifications-v2/${notificationId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'mark_read' }),
+        body: JSON.stringify({ isRead: true }),
       });
 
       if (response.ok) {
@@ -124,7 +124,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Supprimer une notification
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
+      const response = await fetch(`/api/notifications-v2/${notificationId}`, {
         method: 'DELETE',
       });
 
@@ -153,7 +153,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Marquer toutes les notifications comme lues
   const markAllAsRead = useCallback(async () => {
     try {
-      const response = await fetch('/api/notifications/mark-all-read', {
+      const response = await fetch('/api/notifications-v2/mark-all-read', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

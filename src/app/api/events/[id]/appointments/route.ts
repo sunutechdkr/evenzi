@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { createAppointmentRequestNotificationV2, getUserIdFromParticipantEmail } from "@/lib/notifications-v2";
 
 // GET: Récupère tous les rendez-vous pour un événement spécifique
 export async function GET(
@@ -176,6 +177,25 @@ export async function POST(
         },
       },
     });
+    
+    // Créer une notification pour le destinataire
+    try {
+      const recipientUserId = await getUserIdFromParticipantEmail(recipient.email);
+      if (recipientUserId) {
+        const requesterName = `${requester.firstName} ${requester.lastName}`;
+        await createAppointmentRequestNotificationV2(
+          recipientUserId,
+          eventId,
+          requesterName,
+          newAppointment.id,
+          message
+        );
+        console.log(`🔔 Notification de demande de rendez-vous créée pour ${recipient.email}`);
+      }
+    } catch (notificationError) {
+      console.error('⚠️ Erreur lors de la création de la notification de rendez-vous:', notificationError);
+      // On ne fait pas échouer la création du rendez-vous si la notification échoue
+    }
     
     return NextResponse.json(newAppointment, { status: 201 });
   } catch (error) {

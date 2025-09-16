@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
+import { createAppointmentConfirmationNotificationV2, getUserIdFromParticipantEmail } from "@/lib/notifications-v2";
 
 // GET: Récupère les détails d'un rendez-vous spécifique
 export async function GET(
@@ -152,6 +153,50 @@ export async function PUT(
         },
       },
     });
+    
+    // Si le rendez-vous est accepté, créer des notifications de confirmation pour les deux parties
+    if (status === "ACCEPTED" && updateData.confirmedTime) {
+      try {
+        const appointmentTime = updateData.confirmedTime.toLocaleString('fr-FR', {
+          dateStyle: 'short',
+          timeStyle: 'short'
+        });
+        const appointmentLocation = updatedAppointment.location || 'À définir';
+
+        // Notification pour le demandeur
+        const requesterUserId = await getUserIdFromParticipantEmail(updatedAppointment.requester.email);
+        if (requesterUserId) {
+          const recipientName = `${updatedAppointment.recipient.firstName} ${updatedAppointment.recipient.lastName}`;
+          await createAppointmentConfirmationNotificationV2(
+            requesterUserId,
+            eventId,
+            recipientName,
+            appointmentTime,
+            appointmentLocation,
+            appointmentId
+          );
+          console.log(`🔔 Notification de confirmation créée pour le demandeur ${updatedAppointment.requester.email}`);
+        }
+
+        // Notification pour le destinataire
+        const recipientUserId = await getUserIdFromParticipantEmail(updatedAppointment.recipient.email);
+        if (recipientUserId) {
+          const requesterName = `${updatedAppointment.requester.firstName} ${updatedAppointment.requester.lastName}`;
+          await createAppointmentConfirmationNotificationV2(
+            recipientUserId,
+            eventId,
+            requesterName,
+            appointmentTime,
+            appointmentLocation,
+            appointmentId
+          );
+          console.log(`🔔 Notification de confirmation créée pour le destinataire ${updatedAppointment.recipient.email}`);
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Erreur lors de la création des notifications de confirmation:', notificationError);
+        // On ne fait pas échouer la mise à jour si la notification échoue
+      }
+    }
     
     return NextResponse.json(updatedAppointment);
   } catch (error) {

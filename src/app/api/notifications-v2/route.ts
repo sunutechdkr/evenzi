@@ -48,50 +48,67 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // Construire la clause WHERE
-      const whereConditions = [`user_id = $1`];
-      const params = [session.user.id];
-      let paramIndex = 2;
+      // Utiliser Prisma ORM au lieu de SQL raw pour éviter les erreurs de syntaxe
+      const whereClause: any = {
+        userId: session.user.id,
+      };
 
       if (isRead === 'true') {
-        whereConditions.push(`is_read = $${paramIndex}`);
-        params.push(true);
-        paramIndex++;
+        whereClause.isRead = true;
       } else if (isRead === 'false') {
-        whereConditions.push(`is_read = $${paramIndex}`);
-        params.push(false);
-        paramIndex++;
+        whereClause.isRead = false;
       }
 
       if (eventId) {
-        whereConditions.push(`event_id = $${paramIndex}`);
-        params.push(eventId);
-        paramIndex++;
+        whereClause.eventId = eventId;
       }
 
-      const whereClause = whereConditions.join(' AND ');
-
-      // Récupérer les notifications avec requête SQL directe
-      const notifications = await prisma.$queryRaw`
-        SELECT 
-          id, user_id, title, message, type, priority,
-          is_read, read_at, created_at, updated_at,
-          event_id, entity_id, entity_type, action_url, metadata
-        FROM notifications 
-        WHERE ${whereClause}
-        ORDER BY created_at DESC 
-        LIMIT ${take} OFFSET ${skip}
-      `;
+      // Récupérer les notifications avec Prisma ORM
+      const notifications = await prisma.notification.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take,
+        skip,
+        select: {
+          id: true,
+          userId: true,
+          title: true,
+          message: true,
+          type: true,
+          priority: true,
+          isRead: true,
+          readAt: true,
+          createdAt: true,
+          updatedAt: true,
+          eventId: true,
+          entityId: true,
+          entityType: true,
+          actionUrl: true,
+          metadata: true,
+          event: {
+            select: {
+              id: true,
+              name: true,
+              slug: true
+            }
+          }
+        }
+      });
 
       // Compter les notifications non lues
-      const unreadCountResult = await prisma.$queryRaw`
-        SELECT COUNT(*) as count 
-        FROM notifications 
-        WHERE user_id = $1 AND is_read = false
-        ${eventId ? `AND event_id = $2` : ''}
-      `;
+      const unreadCountWhere: any = { 
+        userId: session.user.id, 
+        isRead: false 
+      };
+      if (eventId) {
+        unreadCountWhere.eventId = eventId;
+      }
 
-      const unreadCount = parseInt(unreadCountResult[0]?.count || '0');
+      const unreadCount = await prisma.notification.count({
+        where: unreadCountWhere
+      });
 
       console.log(`✅ Trouvé ${notifications.length} notifications, ${unreadCount} non lues`);
 

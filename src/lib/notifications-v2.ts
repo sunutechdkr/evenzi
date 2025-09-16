@@ -42,22 +42,31 @@ export async function createNotificationV2(data: CreateNotificationData) {
 
     console.log(`🔔 Création notification V2: ${title} pour user ${userId}`);
 
-    const notification = await prisma.$queryRaw`
-      INSERT INTO notifications (
-        user_id, title, message, type, priority, 
-        event_id, entity_id, entity_type, action_url, metadata,
-        created_at, updated_at
-      )
-      VALUES (
-        ${userId}, ${title}, ${message}, ${type}::notification_type, ${priority}::notification_priority,
-        ${eventId}, ${entityId}, ${entityType}, ${actionUrl}, ${metadata ? JSON.stringify(metadata) : null}::jsonb,
-        NOW(), NOW()
-      )
-      RETURNING id, title, message, type, priority, created_at
-    `;
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        title,
+        message,
+        type,
+        priority,
+        eventId,
+        entityId,
+        entityType,
+        actionUrl,
+        metadata,
+      },
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        type: true,
+        priority: true,
+        createdAt: true
+      }
+    });
 
-    console.log(`✅ Notification V2 créée:`, notification[0]);
-    return notification[0];
+    console.log(`✅ Notification V2 créée:`, notification);
+    return notification;
 
   } catch (error) {
     console.error('❌ Erreur création notification V2:', error);

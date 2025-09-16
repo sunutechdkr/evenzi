@@ -30,28 +30,28 @@ export async function PUT(
     console.log(`🔄 Mise à jour notification ${id} -> isRead: ${isRead}`);
 
     try {
-      const result = await prisma.$queryRaw`
-        UPDATE notifications 
-        SET 
-          is_read = ${isRead}, 
-          read_at = ${isRead ? new Date() : null},
-          updated_at = NOW()
-        WHERE id = ${id} AND user_id = ${session.user.id}
-        RETURNING id, title, is_read, read_at
-      `;
+      const notification = await prisma.notification.update({
+        where: {
+          id: id,
+          userId: session.user.id,
+        },
+        data: {
+          isRead: isRead,
+          readAt: isRead ? new Date() : null,
+        },
+        select: {
+          id: true,
+          title: true,
+          isRead: true,
+          readAt: true
+        }
+      });
 
-      if (result.length === 0) {
-        return NextResponse.json(
-          { error: 'Notification non trouvée ou non autorisée' },
-          { status: 404 }
-        );
-      }
-
-      console.log('✅ Notification mise à jour:', result[0]);
+      console.log('✅ Notification mise à jour:', notification);
 
       return NextResponse.json({ 
         success: true, 
-        notification: result[0] 
+        notification 
       });
 
     } catch (dbError) {
@@ -91,20 +91,18 @@ export async function DELETE(
     console.log(`🗑️ Suppression notification ${id}`);
 
     try {
-      const result = await prisma.$queryRaw`
-        DELETE FROM notifications 
-        WHERE id = ${id} AND user_id = ${session.user.id}
-        RETURNING id, title
-      `;
+      const notification = await prisma.notification.delete({
+        where: {
+          id: id,
+          userId: session.user.id,
+        },
+        select: {
+          id: true,
+          title: true
+        }
+      });
 
-      if (result.length === 0) {
-        return NextResponse.json(
-          { error: 'Notification non trouvée ou non autorisée' },
-          { status: 404 }
-        );
-      }
-
-      console.log('✅ Notification supprimée:', result[0]);
+      console.log('✅ Notification supprimée:', notification);
 
       return NextResponse.json({ 
         success: true, 

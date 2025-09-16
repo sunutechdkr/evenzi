@@ -24,32 +24,29 @@ export async function POST(request: NextRequest) {
     console.log(`📝 Marquage toutes notifications comme lues pour user: ${session.user.id}, eventId: ${eventId}`);
 
     try {
-      let query;
-      let params = [session.user.id];
-
+      const updateWhere: any = { 
+        userId: session.user.id, 
+        isRead: false 
+      };
+      
       if (eventId) {
-        query = `
-          UPDATE notifications 
-          SET is_read = true, read_at = NOW(), updated_at = NOW()
-          WHERE user_id = $1 AND event_id = $2 AND is_read = false
-        `;
-        params.push(eventId);
-      } else {
-        query = `
-          UPDATE notifications 
-          SET is_read = true, read_at = NOW(), updated_at = NOW()
-          WHERE user_id = $1 AND is_read = false
-        `;
+        updateWhere.eventId = eventId;
       }
 
-      const result = await prisma.$executeRaw`${query}`;
+      const result = await prisma.notification.updateMany({
+        where: updateWhere,
+        data: {
+          isRead: true,
+          readAt: new Date(),
+        }
+      });
 
-      console.log(`✅ ${result} notifications marquées comme lues`);
+      console.log(`✅ ${result.count} notifications marquées comme lues`);
 
       return NextResponse.json({ 
         success: true, 
-        count: result,
-        message: `${result} notifications marquées comme lues`
+        count: result.count,
+        message: `${result.count} notifications marquées comme lues`
       });
 
     } catch (dbError) {

@@ -434,31 +434,30 @@ model MatchSuggestion {
 }
 
 model Notification {
-  id          String               @id @default(cuid())
-  userId      String               @map("user_id")
-  title       String
-  message     String
-  type        NotificationType
-  priority    NotificationPriority @default(NORMAL)
-  isRead      Boolean              @default(false) @map("is_read")
-  readAt      DateTime?            @map("read_at")
-  createdAt   DateTime             @default(now()) @map("created_at")
-  updatedAt   DateTime             @default(now()) @updatedAt @map("updated_at")
-  
-  // Données contextuelles optionnelles
-  eventId     String?              @map("event_id")
-  entityId    String?              @map("entity_id")
-  entityType  String?              @map("entity_type")
-  actionUrl   String?              @map("action_url")
-  metadata    Json?
-  
-  // Relations
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event?               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, isRead])
-  @@index([userId, createdAt])
-  @@index([eventId])
+  id         String               @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(255)
+  userId     String               @map("user_id") @db.VarChar(255)
+  title      String               @db.VarChar(255)
+  message    String
+  type       notificationtype
+  priority   notificationpriority @default(NORMAL)
+  isRead     Boolean              @default(false) @map("is_read")
+  readAt     DateTime?            @map("read_at") @db.Timestamp(6)
+  createdAt  DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt  DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  eventId    String?              @map("event_id") @db.VarChar(255)
+  entityId   String?              @map("entity_id") @db.VarChar(255)
+  entityType String?              @map("entity_type") @db.VarChar(255)
+  actionUrl  String?              @map("action_url") @db.VarChar(255)
+  metadata   Json?
+  event      Event?               @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_event")
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user")
+
+  @@index([createdAt(sort: Desc)], map: "idx_notifications_created_at")
+  @@index([eventId], map: "idx_notifications_event_id")
+  @@index([priority], map: "idx_notifications_priority")
+  @@index([type], map: "idx_notifications_type")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_notifications_user_id_created_at")
+  @@index([userId, isRead], map: "idx_notifications_user_id_is_read")
   @@map("notifications")
 }
 
@@ -583,21 +582,21 @@ enum GameAction {
   APPOINTMENT_CONFIRMED
 }
 
-enum NotificationType {
-  SYSTEM        // Notifications système
-  EVENT         // Événements (création, modification)
-  REGISTRATION  // Inscriptions
-  APPOINTMENT   // Rendez-vous
-  GAME          // Gamification
-  EMAIL         // Campagnes email
-  MATCHMAKING   // Suggestions de matchmaking
-  SESSION       // Sessions d'événement
-  BADGE         // Badges obtenus
-}
-
-enum NotificationPriority {
+enum notificationpriority {
   LOW
   NORMAL
   HIGH
   URGENT
+}
+
+enum notificationtype {
+  SYSTEM
+  EVENT
+  REGISTRATION
+  APPOINTMENT
+  GAME
+  EMAIL
+  MATCHMAKING
+  SESSION
+  BADGE
 }

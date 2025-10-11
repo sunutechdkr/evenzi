@@ -50,6 +50,7 @@ type MeetingLocation = {
   isActive: boolean;
   type: "CONFERENCE_ROOM" | "CAFE" | "OUTDOOR" | "VIRTUAL" | "OTHER";
   equipment?: string[];
+  amenities?: string[];
   createdAt: string;
 };
 
@@ -80,8 +81,23 @@ export default function LieuxPage() {
     capacity: "",
     type: "CONFERENCE_ROOM" as MeetingLocation["type"],
     equipment: [] as string[],
+    amenities: [] as string[],
     isActive: true
   });
+
+  // Commodités prédéfinies
+  const AVAILABLE_AMENITIES = [
+    "Mobiliers",
+    "Machine à Café", 
+    "Écran",
+    "Imprimante",
+    "Wifi",
+    "Projecteur",
+    "Tableau blanc",
+    "Climatisation",
+    "Prises électriques",
+    "Éclairage naturel"
+  ];
 
   // Fetch meeting locations
   const fetchLocations = async () => {
@@ -148,11 +164,11 @@ export default function LieuxPage() {
             name: "Salle de réunion A",
             address: "1er étage, aile gauche",
             description: "Grande salle équipée pour les présentations",
-            capacity: "12",
+            capacity: 12,
             type: "CONFERENCE_ROOM",
             equipment: ["Projecteur", "Écran", "Tableau blanc"],
+            amenities: ["Wifi", "Climatisation", "Prises électriques"],
             isActive: true,
-            eventId: id as string,
             createdAt: new Date().toISOString()
           },
           {
@@ -160,11 +176,11 @@ export default function LieuxPage() {
             name: "Espace café",
             address: "Hall principal",
             description: "Zone détendue pour discussions informelles",
-            capacity: "8",
+            capacity: 8,
             type: "CAFE",
             equipment: ["Tables hautes", "Machine à café"],
+            amenities: ["Machine à Café", "Wifi", "Éclairage naturel"],
             isActive: true,
-            eventId: id as string,
             createdAt: new Date().toISOString()
           },
           {
@@ -172,11 +188,11 @@ export default function LieuxPage() {
             name: "Terrasse",
             address: "3ème étage",
             description: "Espace extérieur avec vue panoramique",
-            capacity: "15",
+            capacity: 15,
             type: "OUTDOOR",
             equipment: ["Tables", "Parasols"],
+            amenities: ["Éclairage naturel", "Mobiliers"],
             isActive: true,
-            eventId: id as string,
             createdAt: new Date().toISOString()
           }
         ];
@@ -212,6 +228,7 @@ export default function LieuxPage() {
       capacity: "",
       type: "CONFERENCE_ROOM",
       equipment: [],
+      amenities: [],
       isActive: true
     });
     setShowCreateModal(true);
@@ -226,9 +243,19 @@ export default function LieuxPage() {
       capacity: location.capacity ? location.capacity.toString() : "",
       type: location.type,
       equipment: location.equipment || [],
+      amenities: location.amenities || [],
       isActive: location.isActive
     });
     setShowCreateModal(true);
+  };
+
+  const toggleAmenity = (amenity: string) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter(a => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
   };
 
   const handleSave = async () => {
@@ -246,7 +273,8 @@ export default function LieuxPage() {
         },
         body: JSON.stringify({
           ...formData,
-          capacity: formData.capacity ? parseInt(formData.capacity) : null
+          capacity: formData.capacity ? parseInt(formData.capacity) : null,
+          amenities: formData.amenities || []
         }),
       });
 
@@ -555,6 +583,56 @@ export default function LieuxPage() {
               />
             </div>
 
+            {/* Section des commodités */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Commodités disponibles
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {AVAILABLE_AMENITIES.map((amenity) => (
+                  <div
+                    key={amenity}
+                    onClick={() => toggleAmenity(amenity)}
+                    className={`
+                      flex items-center space-x-2 p-2 rounded-lg border cursor-pointer transition-all
+                      ${formData.amenities.includes(amenity)
+                        ? 'bg-[#81B441]/10 border-[#81B441] text-[#81B441]'
+                        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                      }
+                    `}
+                  >
+                    <div className={`
+                      w-4 h-4 rounded-sm border-2 flex items-center justify-center
+                      ${formData.amenities.includes(amenity)
+                        ? 'bg-[#81B441] border-[#81B441]'
+                        : 'border-gray-300'
+                      }
+                    `}>
+                      {formData.amenities.includes(amenity) && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{amenity}</span>
+                  </div>
+                ))}
+              </div>
+              {formData.amenities.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {formData.amenities.map((amenity) => (
+                    <Badge
+                      key={amenity}
+                      variant="secondary"
+                      className="text-xs bg-[#81B441]/20 text-[#81B441] border-[#81B441]/30"
+                    >
+                      {amenity}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -653,6 +731,18 @@ export default function LieuxPage() {
                       {selectedLocation.equipment.map((item, index) => (
                         <Badge key={index} variant="outline" className="bg-blue-50 text-blue-700">
                           {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedLocation.amenities && selectedLocation.amenities.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Commodités</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {selectedLocation.amenities.map((amenity: string, index: number) => (
+                        <Badge key={index} variant="outline" className="bg-[#81B441]/10 text-[#81B441] border-[#81B441]/30">
+                          {amenity}
                         </Badge>
                       ))}
                     </div>

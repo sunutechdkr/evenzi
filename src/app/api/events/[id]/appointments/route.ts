@@ -24,16 +24,22 @@ export async function GET(
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
     const participantId = url.searchParams.get("participantId");
+    const location = url.searchParams.get("location");
     
     // Construire la requête avec les conditions de filtre
     const whereClause: {
       eventId: string;
       status?: string;
+      location?: string;
       OR?: Array<{ requesterId: string } | { recipientId: string }>;
     } = { eventId };
     
     if (status) {
       whereClause.status = status;
+    }
+    
+    if (location) {
+      whereClause.location = location;
     }
     
     if (participantId) {

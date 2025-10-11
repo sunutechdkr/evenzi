@@ -32,6 +32,28 @@ model User {
   @@map("users")
 }
 
+model MeetingLocation {
+  id          String       @id @default(cuid())
+  name        String
+  address     String?
+  description String?
+  capacity    Int?
+  type        LocationType @default(CONFERENCE_ROOM)
+  equipment   String[]
+  amenities   String[]
+  isActive    Boolean      @default(true)
+  eventId     String       @map("event_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([isActive])
+  @@map("meeting_locations")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
@@ -109,6 +131,7 @@ model Event {
   tickets           Ticket[]
   userEventScores   UserEventScore[]
   matchProfiles     UserMatchProfile[]
+  meetingLocations  MeetingLocation[]
 
   @@map("events")
 }
@@ -599,4 +622,12 @@ enum notificationtype {
   MATCHMAKING
   SESSION
   BADGE
+}
+
+enum LocationType {
+  CONFERENCE_ROOM
+  CAFE
+  OUTDOOR
+  VIRTUAL
+  OTHER
 }

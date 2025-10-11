@@ -84,6 +84,17 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
+  // États pour les lieux de rendez-vous
+  const [locations, setLocations] = useState<Array<{
+    id: string;
+    name: string;
+    address?: string;
+    capacity?: number;
+    amenities?: string[];
+  }>>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+
   // Extraire les paramètres une fois au chargement du composant
   useEffect(() => {
     const extractParams = async () => {
@@ -154,7 +165,24 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
     };
 
     fetchParticipants();
+    fetchLocations();
   }, [eventId]);
+
+  const fetchLocations = async () => {
+    if (!eventId) return;
+    setLoadingLocations(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/meeting-locations`);
+      if (response.ok) {
+        const data = await response.json();
+        setLocations(data.filter((loc: any) => loc.isActive));
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des lieux:', error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   // Gestion des changements de formulaire
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -447,15 +475,42 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
                 <Label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                   Lieu
                 </Label>
-                <Input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location || ''}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                  placeholder="Salle, amphithéâtre, etc."
-                />
+                <Select
+                  value={selectedLocation}
+                  onValueChange={(value) => {
+                    setSelectedLocation(value);
+                    setFormData(prev => ({ ...prev, location: value }));
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={loadingLocations ? "Chargement des lieux..." : "Sélectionnez un lieu"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.length > 0 ? (
+                      locations.map((location) => (
+                        <SelectItem key={location.id} value={location.name}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{location.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {location.address && `${location.address}`}
+                              {location.capacity && ` • ${location.capacity} personnes`}
+                              {location.amenities && location.amenities.length > 0 && (
+                                <span className="ml-2">
+                                  {location.amenities.slice(0, 2).join(', ')}
+                                  {location.amenities.length > 2 && '...'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-locations" disabled>
+                        {loadingLocations ? "Chargement..." : "Aucun lieu disponible"}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               
               {/* Speaker */}

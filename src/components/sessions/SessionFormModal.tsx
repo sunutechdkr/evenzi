@@ -108,6 +108,17 @@ export default function SessionFormModal({
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
+  // États pour les lieux de rendez-vous
+  const [locations, setLocations] = useState<Array<{
+    id: string;
+    name: string;
+    address?: string;
+    capacity?: number;
+    amenities?: string[];
+  }>>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+
   // État pour les dates sélectionnées avec DatePicker
   const [startDate, setStartDate] = useState<Date | undefined>(
     session?.start_date ? new Date(session.start_date) : undefined
@@ -161,13 +172,34 @@ export default function SessionFormModal({
 
     if (isOpen) {
       fetchEventDates();
+      fetchParticipants();
+      fetchLocations();
     }
   }, [isOpen, eventId, session, startDate]);
+
+  const fetchLocations = async () => {
+    if (!eventId) return;
+    setLoadingLocations(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/meeting-locations`);
+      if (response.ok) {
+        const data = await response.json();
+        setLocations(data.filter((loc: any) => loc.isActive));
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des lieux:', error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   // Initialiser la prévisualisation de la bannière si elle existe déjà
   useEffect(() => {
     if (session?.banner) {
       setBannerPreview(session.banner);
+    }
+    if (session?.location) {
+      setSelectedLocation(session.location);
     }
   }, [session]);
 
@@ -624,20 +656,42 @@ export default function SessionFormModal({
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <MapPinIcon className="h-5 w-5 text-gray-400" />
                       </div>
-                      <input
-                        type="text"
-                        name="location"
-                        id="location"
-                        className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#81B441] focus:ring-[#81B441] sm:text-sm h-11 placeholder-gray-400"
-                        value={formData.location || ""}
-                        placeholder="Lieu de la session"
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            location: e.target.value,
-                          })
-                        }
-                      />
+                      <Select
+                        value={selectedLocation}
+                        onValueChange={(value) => {
+                          setSelectedLocation(value);
+                          setFormData({ ...formData, location: value });
+                        }}
+                      >
+                        <SelectTrigger className="pl-10 h-11">
+                          <SelectValue placeholder={loadingLocations ? "Chargement des lieux..." : "Sélectionnez un lieu"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {locations.length > 0 ? (
+                            locations.map((location) => (
+                              <SelectItem key={location.id} value={location.name}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{location.name}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {location.address && `${location.address}`}
+                                    {location.capacity && ` • ${location.capacity} personnes`}
+                                    {location.amenities && location.amenities.length > 0 && (
+                                      <span className="ml-2">
+                                        {location.amenities.slice(0, 2).join(', ')}
+                                        {location.amenities.length > 2 && '...'}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no-locations" disabled>
+                              {loadingLocations ? "Chargement..." : "Aucun lieu disponible"}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

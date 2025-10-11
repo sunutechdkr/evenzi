@@ -117,6 +117,8 @@ export default function UserEventSessionsPage({ params }: { params: Promise<{ id
     size?: string;
     type: string;
   }[]>([]);
+  const [isParticipating, setIsParticipating] = useState(false);
+  const [isJoiningSession, setIsJoiningSession] = useState(false);
   
   // Extraire les paramètres une fois au chargement du composant
   useEffect(() => {
@@ -268,6 +270,10 @@ export default function UserEventSessionsPage({ params }: { params: Promise<{ id
       if (participantsResponse.ok) {
         const participantsData = await participantsResponse.json();
         setSessionParticipants(participantsData);
+        
+        // Vérifier si l'utilisateur actuel participe déjà à cette session
+        const userParticipates = participantsData.some((p: Participant) => p.email === session.email);
+        setIsParticipating(userParticipates);
       }
     } catch (error) {
       console.error('Erreur lors du chargement des participants:', error);
@@ -282,6 +288,41 @@ export default function UserEventSessionsPage({ params }: { params: Promise<{ id
       }
     } catch (error) {
       console.error('Erreur lors du chargement des documents:', error);
+    }
+  };
+
+  // Fonction pour rejoindre une session
+  const joinSession = async () => {
+    if (!selectedSession || !eventId) return;
+    
+    setIsJoiningSession(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/sessions/${selectedSession.id}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        setIsParticipating(true);
+        toast.success('Vous participez maintenant à cette session !');
+        
+        // Recharger les participants pour mettre à jour la liste
+        const participantsResponse = await fetch(`/api/events/${eventId}/sessions/${selectedSession.id}/participants`);
+        if (participantsResponse.ok) {
+          const participantsData = await participantsResponse.json();
+          setSessionParticipants(participantsData);
+        }
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Erreur lors de l\'inscription à la session');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'inscription à la session:', error);
+      toast.error('Erreur lors de l\'inscription à la session');
+    } finally {
+      setIsJoiningSession(false);
     }
   };
 
@@ -738,6 +779,24 @@ export default function UserEventSessionsPage({ params }: { params: Promise<{ id
                         {selectedSession.participantCount} participant{selectedSession.participantCount !== 1 ? 's' : ''}
                       </Badge>
                     </div>
+                  </div>
+                  
+                  {/* Bouton Participer */}
+                  <div className="flex-shrink-0">
+                    {isParticipating ? (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                        <CheckBadgeIcon className="h-4 w-4 mr-1" />
+                        Vous participez
+                      </Badge>
+                    ) : (
+                      <Button
+                        onClick={joinSession}
+                        disabled={isJoiningSession}
+                        className="bg-[#81B441] hover:bg-[#81B441]/90 text-white"
+                      >
+                        {isJoiningSession ? 'Inscription...' : 'Participer'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

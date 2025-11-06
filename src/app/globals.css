@@ -392,3 +392,41 @@ body {
 .status-badge-success:hover {
   background-color: #bbf7d0;
 }
+
+
+
+@layer base {
+  :root {
+    /* Sidebar colors - Evenzi theme (gray-800 background, #81B441 accent) */
+    --sidebar-background: 215 28% 17%; /* gray-800 */
+    --sidebar-foreground: 0 0% 100%; /* white text */
+    --sidebar-primary: 142 76% 36%; /* #81B441 - Evenzi green */
+    --sidebar-primary-foreground: 0 0% 100%; /* white text on green */
+    --sidebar-accent: 215 25% 27%; /* gray-700 for hover */
+    --sidebar-accent-foreground: 0 0% 100%; /* white text */
+    --sidebar-border: 215 25% 27%; /* gray-700 border */
+    --sidebar-ring: 142 76% 36%; /* #81B441 focus ring */
+  }
+  .dark {
+    /* Dark mode - même style pour cohérence */
+    --sidebar-background: 215 28% 17%; /* gray-800 */
+    --sidebar-foreground: 0 0% 100%; /* white text */
+    --sidebar-primary: 142 76% 36%; /* #81B441 - Evenzi green */
+    --sidebar-primary-foreground: 0 0% 100%; /* white text on green */
+    --sidebar-accent: 215 25% 27%; /* gray-700 for hover */
+    --sidebar-accent-foreground: 0 0% 100%; /* white text */
+    --sidebar-border: 215 25% 27%; /* gray-700 border */
+    --sidebar-ring: 142 76% 36%; /* #81B441 focus ring */
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

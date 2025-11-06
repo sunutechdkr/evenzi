@@ -1,25 +1,35 @@
-import type { Metadata } from "next";
+"use client";
 
-// Métadonnées pour le SEO de la section dashboard
-export const metadata: Metadata = {
-  title: "Dashboard | Evenzi",
-  description: "Gérez vos événements avec Evenzi - Tableaux de bord, statistiques et gestion des participants",
-};
+import { useState } from "react";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/dashboard/AppSidebar";
+import { AdminNotificationPanel } from "@/components/dashboard/NotificationPanel";
 
 /**
  * Layout pour toutes les pages du dashboard
  * 
  * Ce composant enveloppe toutes les pages sous le chemin /dashboard
- * et peut être utilisé pour ajouter des éléments communs à toutes ces pages
+ * avec le nouveau système Shadcn Sidebar
  */
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [showNotifications, setShowNotifications] = useState(false);
+
   return (
-    <div className="dashboard-wrapper">
-      {children}
-    </div>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen w-full overflow-hidden">
+        <AppSidebar onNotificationToggle={setShowNotifications} />
+        <main className="flex-1 overflow-y-auto bg-gray-50">
+          {children}
+        </main>
+        <AdminNotificationPanel 
+          show={showNotifications} 
+          onClose={() => setShowNotifications(false)} 
+        />
+      </div>
+    </SidebarProvider>
   );
 } 

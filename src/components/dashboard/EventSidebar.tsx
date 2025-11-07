@@ -356,7 +356,7 @@ export function EventSidebar({
           {/* Centre de notifications */}
           <NotificationCenter 
             isExpanded={isExpanded} 
-            onToggle={(show) => setShowNotifications(show)}
+            onToggle={(show) => setShowNotifications(show)} 
             eventId={eventId}
           />
           

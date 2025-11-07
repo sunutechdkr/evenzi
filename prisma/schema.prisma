@@ -21,6 +21,9 @@ model User {
   lastLogin     DateTime?          @map("last_login")
   phone         String?
   plan          UserPlan           @default(STARTER)
+  jobTitle      String?            @map("job_title")
+  company       String?
+  bio           String?
   accounts      Account[]
   events        Event[]
   suggestedFor  MatchSuggestion[]  @relation("SuggestedUsers")

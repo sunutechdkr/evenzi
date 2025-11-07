@@ -1,10 +1,11 @@
 /**
  * Rate Limiter sécurisé pour Evenzi
- * Implémentation robuste avec support Redis (optionnel) et fallback en mémoire
+ * Implémentation robuste avec support Redis et fallback en mémoire
  */
 
 import { NextRequest } from 'next/server';
 import { logger } from './logger';
+import { getCache, isRedisAvailable } from './redis';
 
 interface RateLimitInfo {
   count: number;
@@ -95,6 +96,76 @@ class RateLimiter {
     const key = this.options.keyGenerator!(request);
     const now = Date.now();
     
+    // Essayer d'utiliser Redis si disponible
+    if (isRedisAvailable()) {
+      return this.checkLimitRedis(key, now, request);
+    }
+    
+    // Fallback vers le cache en mémoire
+    return this.checkLimitMemory(key, now, request);
+  }
+
+  private async checkLimitRedis(key: string, now: number, request: NextRequest): Promise<{
+    allowed: boolean;
+    limit: number;
+    remaining: number;
+    resetTime: number;
+    retryAfter?: number;
+  }> {
+    try {
+      const cache = getCache();
+      const windowSeconds = Math.ceil(this.options.windowMs / 1000);
+      
+      // Utiliser une transaction Redis pour atomicité
+      const count = await cache.incr(key);
+      
+      // Si c'est la première requête, définir l'expiration
+      if (count === 1) {
+        await cache.expire(key, windowSeconds);
+      }
+      
+      // Calculer le resetTime
+      const ttl = await cache.ttl(key);
+      const resetTime = now + (ttl > 0 ? ttl * 1000 : this.options.windowMs);
+      
+      const allowed = count <= this.options.maxRequests;
+      const remaining = Math.max(0, this.options.maxRequests - count);
+      
+      let retryAfter: number | undefined;
+      if (!allowed) {
+        retryAfter = Math.ceil((resetTime - now) / 1000);
+        
+        logger.warn('Rate limit exceeded (Redis)', {
+          ip: this.getClientIP(request),
+          path: request.nextUrl.pathname,
+          method: request.method,
+          count,
+          limit: this.options.maxRequests,
+          retryAfter
+        });
+      }
+      
+      return {
+        allowed,
+        limit: this.options.maxRequests,
+        remaining,
+        resetTime,
+        retryAfter
+      };
+    } catch (error) {
+      logger.error('Redis rate limit error, falling back to memory:', error);
+      // Fallback vers la mémoire en cas d'erreur Redis
+      return this.checkLimitMemory(key, now, request);
+    }
+  }
+
+  private async checkLimitMemory(key: string, now: number, request: NextRequest): Promise<{
+    allowed: boolean;
+    limit: number;
+    remaining: number;
+    resetTime: number;
+    retryAfter?: number;
+  }> {
     let info = this.store.get(key);
     
     // Si pas d'info ou fenêtre expirée, reset
@@ -115,10 +186,9 @@ class RateLimiter {
     
     let retryAfter: number | undefined;
     if (!allowed) {
-      retryAfter = Math.ceil((info.resetTime - now) / 1000); // en secondes
+      retryAfter = Math.ceil((info.resetTime - now) / 1000);
       
-      // Log de l'incident de rate limiting
-      logger.warn('Rate limit exceeded', {
+      logger.warn('Rate limit exceeded (Memory)', {
         ip: this.getClientIP(request),
         path: request.nextUrl.pathname,
         method: request.method,

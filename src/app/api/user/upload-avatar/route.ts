@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Validation du fichier
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 1 * 1024 * 1024; // 1MB (limite maximale)
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
     if (file.size > maxSize) {
       return NextResponse.json({
-        error: 'Le fichier est trop volumineux (max 5MB)'
+        error: 'Le fichier est trop volumineux (max 1MB)'
       }, { status: 400 });
     }
 

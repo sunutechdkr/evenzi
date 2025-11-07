@@ -157,6 +157,8 @@ export default function ProfilePage() {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      console.log('📸 Fichier sélectionné:', file.name, 'Taille:', (file.size / 1024).toFixed(2), 'KB');
+      
       // Vérifier la taille (1MB max)
       if (file.size > 1 * 1024 * 1024) {
         toast.error('Le fichier est trop volumineux (max 1MB)');
@@ -164,10 +166,12 @@ export default function ProfilePage() {
       }
 
       try {
+        console.log('🚀 Début upload avatar...');
         await uploadAvatar(file);
+        console.log('✅ Upload avatar terminé avec succès');
         toast.success('Avatar mis à jour !');
       } catch (error) {
-        console.error('Erreur upload:', error);
+        console.error('❌ Erreur upload:', error);
       }
     }
   };
@@ -341,7 +345,18 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Stats Grid */}
+              {/* CTA Modifier profil */}
+              <div className="mt-6">
+                <Button 
+                  onClick={() => setShowEditModal(true)}
+                  className="w-full bg-[#81B441] hover:bg-[#6a9636] text-white py-6 text-lg font-semibold shadow-lg"
+                >
+                  <Edit3 className="h-5 w-5 mr-2" />
+                  Modifier mon profil
+                </Button>
+              </div>
+
+              {/* Stats Grid - APRÈS le CTA */}
               {!loadingStats && stats && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
                   {/* Gamification */}
@@ -389,17 +404,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
-
-              {/* CTA Modifier profil */}
-              <div className="mt-6">
-                <Button 
-                  onClick={() => setShowEditModal(true)}
-                  className="w-full bg-[#81B441] hover:bg-[#6a9636] text-white py-6 text-lg font-semibold shadow-lg"
-                >
-                  <Edit3 className="h-5 w-5 mr-2" />
-                  Modifier mon profil
-                </Button>
-              </div>
             </div>
           </CardContent>
         </Card>

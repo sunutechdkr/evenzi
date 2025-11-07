@@ -10,6 +10,9 @@ const updateProfileSchema = z.object({
   name: z.string().min(1, 'Le nom est requis').max(100, 'Le nom est trop long').optional(),
   phone: z.string().regex(/^[+]?[0-9\s\-\(\)]+$/, 'Format de téléphone invalide').optional(),
   image: z.string().url('URL d\'image invalide').optional(),
+  jobTitle: z.string().max(100, 'Le titre est trop long').optional(),
+  company: z.string().max(100, 'Le nom de l\'entreprise est trop long').optional(),
+  bio: z.string().max(300, 'La bio ne peut dépasser 300 caractères').optional(),
 });
 
 const updateEmailSchema = z.object({
@@ -61,6 +64,9 @@ export async function GET() {
         emailVerified: true,
         createdAt: true,
         updatedAt: true,
+        jobTitle: true,
+        company: true,
+        bio: true,
       },
     });
 

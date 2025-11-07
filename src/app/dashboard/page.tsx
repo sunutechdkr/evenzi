@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/dashboard/Sidebar";
 import Link from "next/link";
 import { format, isPast, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -42,8 +41,6 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [stats, setStats] = useState({
     totalEvents: 0,
     totalRegistrations: 0,
@@ -163,14 +160,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="dashboard-container flex h-screen bg-gray-50">
-      <Sidebar />
-      <div 
-        className={`dashboard-content flex-1 overflow-auto transition-all duration-300 ${
-          sidebarExpanded ? (isMobile ? 'ml-0' : 'ml-64') : 'ml-20'
-        }`}
-      >
-        <main className="dashboard-main p-6">
+    <div className="w-full h-full">
+      <main className="p-6">
           <div className="dashboard-header mb-8">
             <div>
               <h1 className="dashboard-title text-2xl font-bold text-gray-800">Tableau de bord administrateur</h1>
@@ -339,8 +330,7 @@ export default function Dashboard() {
           </div>
           
           {/* Recent activity or additional content can go here */}
-        </main>
-        </div>
+      </main>
     </div>
   );
 } 

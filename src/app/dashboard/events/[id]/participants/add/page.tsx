@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import Link from "next/link";
 import { HomeIcon, ArrowLeftIcon, UserPlusIcon, CheckCircleIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
@@ -31,7 +30,6 @@ export default function AddParticipantPage({ params }: { params: Promise<{ id: s
   });
   const [tickets, setTickets] = useState([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
-
 
   // Fonction pour récupérer les billets
   const fetchTickets = async () => {

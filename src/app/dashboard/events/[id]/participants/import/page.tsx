@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import Link from "next/link";
 import { HomeIcon, ArrowLeftIcon, ArrowUpTrayIcon, DocumentArrowDownIcon } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";

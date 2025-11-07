@@ -13,7 +13,6 @@ import {
   FlagIcon,
   ArrowPathIcon
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
@@ -74,7 +73,6 @@ type GameStats = {
 
 export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const [eventId, setEventId] = useState<string>("");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [event, setEvent] = useState<Event | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [gameStats, setGameStats] = useState<GameStats>({

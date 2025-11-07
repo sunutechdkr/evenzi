@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import UserEventSidebar from "@/components/dashboard/UserEventSidebar";
 import { 
   Card,
   CardContent,
@@ -98,8 +97,6 @@ export default function UserRendezVousPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [currentUserRegistrationId, setCurrentUserRegistrationId] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{id: string, name: string} | null>(null);

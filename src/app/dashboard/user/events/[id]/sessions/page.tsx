@@ -17,7 +17,6 @@ import {
   BuildingOfficeIcon,
   BriefcaseIcon
 } from "@heroicons/react/24/outline";
-import { UserEventSidebar } from "@/components/dashboard/UserEventSidebar";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { format } from "date-fns";
@@ -96,7 +95,6 @@ type ViewMode = 'cards' | 'grid';
 
 export default function UserEventSessionsPage({ params }: { params: Promise<{ id: string }> }) {
   const [eventId, setEventId] = useState<string>("");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [event, setEvent] = useState<Event | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +103,6 @@ export default function UserEventSessionsPage({ params }: { params: Promise<{ id
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
-  const [isMobile, setIsMobile] = useState(false);
   
   // États pour le popup de détails
   const [showSessionModal, setShowSessionModal] = useState(false);

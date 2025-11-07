@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sidebar } from "@/components/dashboard/Sidebar";
 import Link from "next/link";
 import { format, isPast, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -42,8 +41,6 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [stats, setStats] = useState({
     totalEvents: 0,
     totalRegistrations: 0,

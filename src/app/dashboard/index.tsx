@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/dashboard/SidebarNew";
 import Link from "next/link";
 import { format, isPast, isToday } from "date-fns";
 import { fr } from "date-fns/locale";

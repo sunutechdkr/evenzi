@@ -25,7 +25,6 @@ import {
   CalendarDaysIcon,
   ArrowUpTrayIcon
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import { toast } from "react-hot-toast";
 import ParticipantBadge from "@/components/events/ParticipantBadge";
 
@@ -98,7 +97,6 @@ export default function EventParticipantsPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [processing, setProcessing] = useState<{[key: string]: boolean}>({});
   const [participantType, setParticipantType] = useState('all');
   const [checkinStatus, setCheckinStatus] = useState('all');

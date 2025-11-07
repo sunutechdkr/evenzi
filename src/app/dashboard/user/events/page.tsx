@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import UserSidebar from "@/components/dashboard/UserSidebar";
 import { format, isPast, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 import { 
@@ -58,8 +57,6 @@ interface Registration {
 export default function UserEventsPage() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -186,13 +183,7 @@ export default function UserEventsPage() {
   };
 
   return (
-    <div className="dashboard-container flex h-screen bg-gray-50">
-      <UserSidebar />
-      <div 
-        className={`dashboard-content flex-1 overflow-auto transition-all duration-300 ${
-          sidebarExpanded ? (isMobile ? 'ml-0' : 'ml-64') : 'ml-20'
-        }`}
-      >
+    <div className="w-full h-full">
         <main className="dashboard-main p-6">
           <div className="dashboard-header mb-8">
             <div>
@@ -350,7 +341,6 @@ export default function UserEventsPage() {
             )}
           </div>
         </main>
-      </div>
     </div>
   );
 } 

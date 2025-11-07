@@ -24,7 +24,6 @@ import {
   BanknotesIcon,
   TrashIcon
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -113,7 +112,6 @@ export default function EventSponsorsPage({ params }: { params: Promise<{ id: st
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const router = useRouter();
-
 
   // Extraction des paramètres
   useEffect(() => {
@@ -236,14 +234,10 @@ export default function EventSponsorsPage({ params }: { params: Promise<{ id: st
     setCurrentPage(1);
   }, [searchTerm, levelFilter]);
 
-
-
   // Helper function to handle edited sponsor updates
   const handleEditedSponsorUpdate = (updatedData: Record<string, any>) => {
     setEditedSponsor(updatedData);
   };
-
-
 
   /**
    * Rafraîchit la liste des sponsors

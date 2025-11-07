@@ -12,7 +12,6 @@ import {
   UserPlusIcon,
   CheckIcon
 } from "@heroicons/react/24/outline";
-import UserEventSidebar from "@/components/dashboard/UserEventSidebar";
 import AppointmentRequestForm from "@/components/appointments/AppointmentRequestForm";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
@@ -75,8 +74,6 @@ export default function UserEventParticipantsPage({ params }: { params: Promise<
   const [modalOpen, setModalOpen] = useState(false);
   const [appointmentFormOpen, setAppointmentFormOpen] = useState(false);
   const [currentUserRegistrationId, setCurrentUserRegistrationId] = useState<string | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [isContactAdded, setIsContactAdded] = useState(false);
   
   const participantsPerPage = 25;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import { 
   PlusIcon,
   EyeIcon,
@@ -73,7 +72,6 @@ export default function EventTicketsPage({ params }: { params: Promise<{ id: str
   const [eventId, setEventId] = useState<string>("");
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);

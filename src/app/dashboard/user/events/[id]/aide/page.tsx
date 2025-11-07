@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { UserEventSidebar } from "@/components/dashboard/UserEventSidebar";
 import { 
   Card,
   CardContent,
@@ -165,7 +164,6 @@ export default function UserAidePage() {
   const { id } = useParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   // Filtrer les articles selon la recherche et la catégorie
   const filteredArticles = helpArticles.filter(article => {

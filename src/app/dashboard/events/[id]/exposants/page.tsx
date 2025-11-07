@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import { useParams } from "next/navigation";
 
 export default function ExposantsRedirect() {

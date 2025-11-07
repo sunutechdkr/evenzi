@@ -9,7 +9,6 @@ import {
   ArrowLeftIcon, 
   PhotoIcon,
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 
 // Type d'événement
 type Event = {
@@ -47,8 +46,6 @@ export default function EditEventPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [wordCount, setWordCount] = useState(0);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   
   // Options pour les sélecteurs
   const sectors = ["Technologie", "Santé", "Éducation", "Finance", "Art et Culture", "Sport", "Environnement"];

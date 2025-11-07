@@ -14,7 +14,6 @@ import {
   GlobeAltIcon,
   CheckCircleIcon
 } from "@heroicons/react/24/outline";
-import UserEventSidebar from "@/components/dashboard/UserEventSidebar";
 
 // Type d'événement
 type Event = {
@@ -47,8 +46,6 @@ type Event = {
 export default function UserEventDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<Event | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   
   // Récupérer le paramètre d'URL

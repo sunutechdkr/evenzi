@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import { ArrowLeftIcon, CalendarIcon, AdjustmentsHorizontalIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import TicketAnalytics from "@/components/analytics/TicketAnalytics";
 import {

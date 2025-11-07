@@ -20,7 +20,6 @@ import {
   GlobeAltIcon,
   CogIcon
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 
 // Type d'événement
 type Event = {
@@ -53,8 +52,6 @@ type Event = {
 export default function EventDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<Event | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   
   // État pour les statistiques
   const [eventStats, setEventStats] = useState({
@@ -161,22 +158,9 @@ export default function EventDetailsPage() {
 
   // Rendu de la page
     return (
-    <div className="dashboard-container min-h-screen overflow-hidden">
-      <EventSidebar 
-        eventId={eventId} 
-        onExpandChange={(expanded) => setSidebarExpanded(expanded)}
-      />
-      
-      <div 
-        className={`dashboard-content bg-gray-50 ${!sidebarExpanded ? 'dashboard-content-collapsed' : ''}`}
-        style={{ 
-          marginLeft: isMobile ? 0 : sidebarExpanded ? '16rem' : '4rem',
-          transition: 'margin-left 0.3s ease'
-        }}
-      >
-        <main className="dashboard-main flex-1">
-          {/* En-tête avec retour et actions */}
-          <div className="p-4 bg-white border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="w-full h-full">
+      {/* En-tête avec retour et actions */}
+      <div className="p-4 bg-white border-b border-gray-200 flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between gap-4">
             <div className="flex items-center space-x-4">
               <Link href="/dashboard/events" className="inline-flex items-center text-gray-600 hover:text-gray-900">
                 <ArrowLeftIcon className="w-5 h-5 mr-2" />
@@ -419,8 +403,6 @@ export default function EventDetailsPage() {
                 </div>
               </div>
             )}
-            </div>
-        </main>
       </div>
     </div>
   );

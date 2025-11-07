@@ -16,7 +16,6 @@ import {
   CalendarIcon,
   EyeIcon
 } from "@heroicons/react/24/outline";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 
 // Type d'événement
 type Event = {
@@ -49,8 +48,6 @@ type Event = {
 export default function EventDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<Event | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   
   // État pour les statistiques
   const [eventStats, setEventStats] = useState({

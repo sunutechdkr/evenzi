@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import UserSidebar from "@/components/dashboard/UserSidebar";
 import Link from "next/link";
 import { format, isPast, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -60,7 +59,6 @@ interface Registration {
 export default function UserDashboard() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [stats, setStats] = useState({
     totalRegistrations: 0,
     upcomingEvents: 0,
@@ -199,13 +197,7 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="dashboard-container flex h-screen bg-gray-50">
-      <UserSidebar />
-      <div 
-        className={`dashboard-content flex-1 overflow-auto transition-all duration-300 ${
-          isMobile ? 'ml-0' : 'ml-64'
-        }`}
-      >
+    <div className="w-full h-full">
         <main className="dashboard-main p-6">
           <div className="dashboard-header mb-8">
             <div>
@@ -334,7 +326,6 @@ export default function UserDashboard() {
             </div>
           </div>
         </main>
-      </div>
     </div>
   );
 } 

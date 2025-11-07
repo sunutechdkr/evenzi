@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/dashboard/Sidebar";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -50,7 +49,6 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -144,10 +142,8 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="dashboard-container">
-      <Sidebar onExpandChange={setSidebarExpanded} />
-      <div className={`transition-all duration-300 ease-in-out ${sidebarExpanded ? "md:ml-64" : "ml-0"} p-4 md:p-6`}>
-        <main className="dashboard-main">
+    <div className="w-full h-full">
+      <main className="p-6">
           <div className="dashboard-header">
             <h1 className="dashboard-title">Analytique</h1>
           </div>
@@ -295,8 +291,7 @@ export default function AnalyticsPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
+      </main>
     </div>
   );
 } 

@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import SendEmailModal from "@/components/templates/SendEmailModal";
 import dynamic from 'next/dynamic';
 import Link from 'next/link';

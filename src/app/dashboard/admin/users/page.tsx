@@ -16,7 +16,6 @@ import {
   Home
 } from "lucide-react";
 import Link from "next/link";
-import Sidebar from "@/components/dashboard/Sidebar";
 
 // Composants Shadcn/UI
 import { Button } from "@/components/ui/button";
@@ -101,7 +100,6 @@ export default function UsersManagementPage() {
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [userEvents, setUserEvents] = useState<Event[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   // Mettre à jour la date de dernière connexion au chargement de la page
   useEffect(() => {

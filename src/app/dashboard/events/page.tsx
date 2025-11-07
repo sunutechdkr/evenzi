@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Sidebar from "@/components/dashboard/Sidebar";
+import { useState } from "react";
 import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { EventTable } from "@/components/dashboard/EventTable";
@@ -9,35 +8,10 @@ import { EventTable } from "@/components/dashboard/EventTable";
 export default function EventsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  
-  // Détecter si l'écran est de taille mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    // Vérifier initialement
-    checkMobile();
-    
-    // Écouter les changements de taille d'écran
-    window.addEventListener('resize', checkMobile);
-    
-    // Nettoyer
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
   
   return (
-    <div className="dashboard-container min-h-screen overflow-hidden">
-      <Sidebar onExpandChange={(expanded) => setSidebarExpanded(expanded)} />
-      <div 
-        className={`dashboard-content bg-gray-50 ${!sidebarExpanded ? 'dashboard-content-collapsed' : ''}`}
-        style={{ 
-          marginLeft: isMobile ? 0 : sidebarExpanded ? '16rem' : '4rem'
-        }}
-      >
-        <main className="dashboard-main">
+    <div className="w-full h-full">
+      <main className="p-6">
           <div className="dashboard-header mb-8">
             <div>
               <h1 className="dashboard-title">Événements</h1>
@@ -97,8 +71,7 @@ export default function EventsPage() {
           </div>
           
           <EventTable searchQuery={searchQuery} statusFilter={statusFilter} />
-        </main>
-      </div>
+      </main>
     </div>
   );
 } 

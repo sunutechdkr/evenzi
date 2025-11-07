@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import UserEventSidebar from "@/components/dashboard/UserEventSidebar";
 import ParticipantBadge from "@/components/events/ParticipantBadge";
 import { 
   Card,
@@ -81,8 +80,6 @@ export default function UserBadgePage() {
   const [registrationData, setRegistrationData] = useState<EventRegistration | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Récupérer les données du badge de l'utilisateur
   const fetchBadgeData = async () => {
@@ -155,8 +152,6 @@ export default function UserBadgePage() {
       year: 'numeric'
     });
   };
-
-
 
   if (status === "loading" || loading) {
     return (

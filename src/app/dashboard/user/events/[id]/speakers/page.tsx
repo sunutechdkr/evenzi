@@ -12,7 +12,6 @@ import {
   MagnifyingGlassIcon,
   InformationCircleIcon
 } from "@heroicons/react/24/outline";
-import { UserEventSidebar } from "@/components/dashboard/UserEventSidebar";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 
@@ -71,8 +70,6 @@ export default function UserEventSpeakersPage({ params }: { params: Promise<{ id
   const [selectedSpeaker, setSelectedSpeaker] = useState<Speaker | null>(null);
   const [showSpeakerModal, setShowSpeakerModal] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Extraction des paramètres
   useEffect(() => {

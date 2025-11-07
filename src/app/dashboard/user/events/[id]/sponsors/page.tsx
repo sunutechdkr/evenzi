@@ -12,7 +12,6 @@ import {
   EyeSlashIcon,
   EnvelopeIcon
 } from "@heroicons/react/24/outline";
-import { UserEventSidebar } from "@/components/dashboard/UserEventSidebar";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { format } from "date-fns";
@@ -81,8 +80,6 @@ export default function UserEventSponsorsPage({ params }: { params: Promise<{ id
   const [selectedSponsor, setSelectedSponsor] = useState<Sponsor | null>(null);
   const [showSponsorModal, setShowSponsorModal] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [sponsorMembers, setSponsorMembers] = useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);

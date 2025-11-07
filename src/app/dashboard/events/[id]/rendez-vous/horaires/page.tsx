@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { EventSidebar } from "@/components/dashboard/EventSidebar";
 import { 
   Card,
   CardContent,
@@ -54,8 +53,6 @@ export default function AdminHorairesPage() {
   const { id } = useParams();
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);

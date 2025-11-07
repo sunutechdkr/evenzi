@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import UserEventSidebar from "@/components/dashboard/UserEventSidebar";
 import { 
   Card,
   CardContent,
@@ -59,8 +58,6 @@ export default function LieuxPage() {
 
   const [locations, setLocations] = useState<MeetingLocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<MeetingLocation | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);

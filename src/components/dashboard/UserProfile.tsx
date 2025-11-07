@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { 
@@ -24,9 +24,15 @@ import { Badge } from "@/components/ui/badge";
  * Composant UserProfile - Profil utilisateur pour la sidebar
  */
 export function UserProfile({ isExpanded = true }: { isExpanded: boolean }) {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userImage, setUserImage] = useState<string | null | undefined>(null);
+  
+  // Récupérer l'image depuis la session (mise à jour après upload)
+  useEffect(() => {
+    setUserImage(session?.user?.image);
+  }, [session?.user?.image]);
   
   // Récupérer les initiales de l'utilisateur pour l'avatar
   const getUserInitials = () => {
@@ -64,9 +70,12 @@ export function UserProfile({ isExpanded = true }: { isExpanded: boolean }) {
           <div className="bg-gray-700 rounded-lg p-3 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 border-l-2 border-[#81B441]">
             <div className="flex items-center space-x-3">
               <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#81B441] to-[#6a9636] flex items-center justify-center text-white font-bold">
-                  {getUserInitials()}
-                </div>
+                <Avatar className="h-10 w-10 border-2 border-[#81B441]">
+                  <AvatarImage src={userImage || undefined} alt={session?.user?.name || 'User'} />
+                  <AvatarFallback className="bg-gradient-to-r from-[#81B441] to-[#6a9636] text-white font-bold">
+                    {getUserInitials()}
+                  </AvatarFallback>
+                </Avatar>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
@@ -132,7 +141,7 @@ export function UserProfile({ isExpanded = true }: { isExpanded: boolean }) {
           
           <div className="py-4 flex flex-col items-center space-y-4">
             <Avatar className="h-24 w-24 border-4 border-[#81B441]/20">
-              <AvatarImage src={session.user?.image || undefined} />
+              <AvatarImage src={userImage || undefined} alt={session.user?.name || 'User'} />
               <AvatarFallback className="bg-[#81B441] text-white text-xl">
                 {getUserInitials()}
               </AvatarFallback>

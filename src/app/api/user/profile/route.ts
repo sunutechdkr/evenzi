@@ -18,7 +18,12 @@ const updateEmailSchema = z.object({
 
 const updatePasswordSchema = z.object({
   currentPassword: z.string().optional(),
-  newPassword: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
+  newPassword: z.string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
+    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
+    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre')
+    .regex(/[^A-Za-z0-9]/, 'Le mot de passe doit contenir au moins un caractère spécial'),
   confirmPassword: z.string().min(1, 'Confirmation requise'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
@@ -204,7 +209,17 @@ async function updatePassword(email: string, data: UpdatePasswordData) {
     }
   }
 
-  // Hasher le nouveau mot de passe
+  // Vérifier que le nouveau mot de passe est différent de l'ancien
+  if (user.password) {
+    const isSamePassword = await bcrypt.compare(validation.data.newPassword, user.password);
+    if (isSamePassword) {
+      return NextResponse.json({
+        error: 'Le nouveau mot de passe doit être différent de l\'ancien'
+      }, { status: 400 });
+    }
+  }
+
+  // Hasher le nouveau mot de passe avec bcrypt (12 rounds = sécurisé)
   const hashedPassword = await bcrypt.hash(validation.data.newPassword, 12);
 
   await prisma.user.update({

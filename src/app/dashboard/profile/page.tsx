@@ -174,8 +174,19 @@ export default function ProfilePage() {
     
     if (!passwordForm.newPassword) {
       errors.newPassword = 'Nouveau mot de passe requis';
-    } else if (passwordForm.newPassword.length < 8) {
-      errors.newPassword = 'Le mot de passe doit contenir au moins 8 caractères';
+    } else {
+      // Validation de la force du mot de passe
+      if (passwordForm.newPassword.length < 8) {
+        errors.newPassword = 'Le mot de passe doit contenir au moins 8 caractères';
+      } else if (!/[A-Z]/.test(passwordForm.newPassword)) {
+        errors.newPassword = 'Le mot de passe doit contenir au moins une majuscule';
+      } else if (!/[a-z]/.test(passwordForm.newPassword)) {
+        errors.newPassword = 'Le mot de passe doit contenir au moins une minuscule';
+      } else if (!/[0-9]/.test(passwordForm.newPassword)) {
+        errors.newPassword = 'Le mot de passe doit contenir au moins un chiffre';
+      } else if (!/[^A-Za-z0-9]/.test(passwordForm.newPassword)) {
+        errors.newPassword = 'Le mot de passe doit contenir au moins un caractère spécial';
+      }
     }
     
     if (!passwordForm.confirmPassword) {

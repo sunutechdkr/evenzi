@@ -224,7 +224,14 @@ export function useProfile() {
       }
       
       setUser(result.user);
-      await updateSession(); // Mettre à jour la session NextAuth
+      // Mettre à jour la session NextAuth avec la nouvelle image
+      await updateSession({
+        ...session,
+        user: {
+          ...session?.user,
+          image: result.user.image,
+        },
+      });
       toast.success(result.message);
       return result;
     } catch (error) {
@@ -235,7 +242,7 @@ export function useProfile() {
     } finally {
       setIsLoading(false);
     }
-  }, [updateSession]);
+  }, [updateSession, session]);
 
   // Supprimer avatar
   const deleteAvatar = useCallback(async () => {
@@ -254,7 +261,14 @@ export function useProfile() {
       }
       
       setUser(result.user);
-      await updateSession(); // Mettre à jour la session NextAuth
+      // Mettre à jour la session NextAuth en supprimant l'image
+      await updateSession({
+        ...session,
+        user: {
+          ...session?.user,
+          image: null,
+        },
+      });
       toast.success(result.message);
       return result;
     } catch (error) {
@@ -265,7 +279,7 @@ export function useProfile() {
     } finally {
       setIsLoading(false);
     }
-  }, [updateSession]);
+  }, [updateSession, session]);
 
   return {
     user,

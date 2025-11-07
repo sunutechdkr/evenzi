@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
+import { put, del } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Validation du fichier
     const maxSize = 5 * 1024 * 1024; // 5MB
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
     if (file.size > maxSize) {
       return NextResponse.json({
@@ -36,46 +34,62 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Créer le dossier uploads s'il n'existe pas
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'avatars');
-    try {
-      await mkdir(uploadsDir, { recursive: true });
-    } catch {
-      // Le dossier existe déjà, c'est OK
+    // Récupérer l'utilisateur actuel pour supprimer l'ancien avatar si existe
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { image: true }
+    });
+
+    // Supprimer l'ancien avatar de Vercel Blob si c'est une URL Blob
+    if (currentUser?.image && currentUser.image.startsWith('https://') && currentUser.image.includes('vercel-storage.com')) {
+      try {
+        // Utiliser l'URL complète pour supprimer le blob
+        await del(currentUser.image);
+        console.log('✅ Ancien avatar supprimé de Vercel Blob');
+      } catch (error) {
+        console.warn('⚠️ Impossible de supprimer l\'ancien avatar:', error);
+        // Continuer même si la suppression échoue
+      }
     }
 
     // Générer un nom de fichier unique
-    const fileName = `${randomUUID()}-${file.name}`;
-    const filePath = join(uploadsDir, fileName);
+    const timestamp = Date.now();
+    const extension = file.name.split('.').pop() || 'jpg';
+    const filename = `avatar_${timestamp}.${extension}`;
+    const pathname = `avatars/${filename}`;
 
-    // Écrire le fichier
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    console.log('📁 Upload avatar vers Vercel Blob:', pathname);
 
-    // URL publique du fichier
-    const imageUrl = `/uploads/avatars/${fileName}`;
+    // Upload vers Vercel Blob
+    const blob = await put(pathname, file, {
+      access: 'public',
+      addRandomSuffix: true, // Évite les conflits
+    });
+
+    console.log('✅ Avatar uploadé vers Blob:', blob.url);
 
     // Mettre à jour l'utilisateur avec la nouvelle image
     const updatedUser = await prisma.user.update({
       where: { email: session.user.email },
-      data: { image: imageUrl },
+      data: { image: blob.url },
       select: {
         id: true,
         name: true,
         email: true,
         image: true,
+        phone: true,
+        role: true,
       },
     });
 
     return NextResponse.json({
       message: 'Avatar mis à jour avec succès',
       user: updatedUser,
-      imageUrl
+      imageUrl: blob.url
     });
 
   } catch (error) {
-    console.error('Erreur lors de l\'upload de l\'avatar:', error);
+    console.error('❌ Erreur lors de l\'upload de l\'avatar:', error);
     return NextResponse.json({
       error: 'Erreur lors de l\'upload de l\'avatar'
     }, { status: 500 });
@@ -90,6 +104,24 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
+    // Récupérer l'utilisateur actuel pour supprimer l'avatar de Vercel Blob
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { image: true }
+    });
+
+    // Supprimer l'avatar de Vercel Blob si c'est une URL Blob
+    if (currentUser?.image && currentUser.image.startsWith('https://') && currentUser.image.includes('vercel-storage.com')) {
+      try {
+        // Utiliser l'URL complète pour supprimer le blob
+        await del(currentUser.image);
+        console.log('✅ Avatar supprimé de Vercel Blob');
+      } catch (error) {
+        console.warn('⚠️ Impossible de supprimer l\'avatar de Blob:', error);
+        // Continuer même si la suppression échoue
+      }
+    }
+
     // Remettre l'image à null (utilisera les initiales par défaut)
     const updatedUser = await prisma.user.update({
       where: { email: session.user.email },
@@ -99,6 +131,8 @@ export async function DELETE() {
         name: true,
         email: true,
         image: true,
+        phone: true,
+        role: true,
       },
     });
 
@@ -108,7 +142,7 @@ export async function DELETE() {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la suppression de l\'avatar:', error);
+    console.error('❌ Erreur lors de la suppression de l\'avatar:', error);
     return NextResponse.json({
       error: 'Erreur lors de la suppression de l\'avatar'
     }, { status: 500 });

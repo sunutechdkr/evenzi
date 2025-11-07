@@ -2,8 +2,23 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
-import { applyRateLimit, createRateLimiter } from './lib/rateLimiter';
+import { applyRateLimit, createRateLimiter, disableRedisForMiddleware } from './lib/rateLimiter';
 import { logger } from './lib/logger';
+
+// Désactiver Redis pour le middleware (Edge Runtime ne supporte pas ioredis)
+// Le middleware utilisera uniquement le cache en mémoire
+disableRedisForMiddleware();
+
+// Fonction helper pour obtenir l'IP du client
+function getClientIP(req: NextRequest): string {
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIP = req.headers.get('x-real-ip');
+  const clientIP = req.headers.get('x-client-ip');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return realIP || clientIP || 'unknown';
+}
 
 // List of public routes that don't require authentication
 const publicRoutes = [
@@ -77,7 +92,8 @@ export async function middleware(request: NextRequest) {
   
   if (suspiciousPatterns.some(pattern => pattern.test(url)) ||
       suspiciousUserAgents.some(ua => userAgent.toLowerCase().includes(ua))) {
-    console.warn('🚨 Suspicious activity detected:', { url, userAgent, ip: request.ip });
+    const clientIP = getClientIP(request);
+    console.warn('🚨 Suspicious activity detected:', { url, userAgent, ip: clientIP });
     return NextResponse.json(
       { error: 'Requête suspecte détectée' },
       { 
@@ -113,9 +129,10 @@ export async function middleware(request: NextRequest) {
   
   // Si rate limit dépassé, retourner erreur 429
   if (!rateLimitResult.allowed) {
+    const clientIP = getClientIP(request);
     console.warn('🚫 Rate limit exceeded:', { 
       pathname, 
-      ip: request.ip,
+      ip: clientIP,
       retryAfter: rateLimitResult.retryAfter 
     });
 
@@ -159,7 +176,8 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', request.url);
-    logger.debug('Authentication required', { pathname, ip: request.ip });
+    const clientIP = getClientIP(request);
+    logger.debug('Authentication required', { ip: clientIP });
     return NextResponse.redirect(loginUrl);
   }
 
@@ -214,7 +232,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 4. HEADERS DE SÉCURITÉ ET CORS BASIQUES - Sans modules Node.js
-  let response = NextResponse.next();
+  const response = NextResponse.next();
   
   // Headers de sécurité basiques
   response.headers.set('X-Content-Type-Options', 'nosniff');

@@ -1,11 +1,49 @@
 /**
  * Rate Limiter sécurisé pour Evenzi
  * Implémentation robuste avec support Redis et fallback en mémoire
+ * Compatible Edge Runtime (pas d'import Redis direct)
  */
 
 import { NextRequest } from 'next/server';
 import { logger } from './logger';
-import { getCache, isRedisAvailable } from './redis';
+
+// Import conditionnel de Redis (seulement si disponible, pas dans Edge Runtime)
+// Le middleware Next.js s'exécute dans Edge Runtime qui ne supporte pas ioredis
+// On utilise donc uniquement le cache en mémoire pour le middleware
+let redisModule: any = null;
+let isRedisModuleAvailable = false;
+
+// Flag pour désactiver Redis (utilisé dans middleware/Edge Runtime)
+let useRedis = true;
+
+// Fonction pour désactiver Redis (appelée depuis le middleware)
+export function disableRedisForMiddleware() {
+  useRedis = false;
+}
+
+// Fonction pour charger Redis de manière conditionnelle (pas dans Edge Runtime)
+async function loadRedisIfAvailable() {
+  // Si Redis est désactivé (middleware), ne pas l'utiliser
+  if (!useRedis) {
+    return { available: false, cache: null, isRedisAvailable: false };
+  }
+  
+  try {
+    if (!redisModule) {
+      // Dynamic import pour éviter les erreurs dans Edge Runtime
+      redisModule = await import('./redis');
+      isRedisModuleAvailable = true;
+    }
+    return { 
+      available: isRedisModuleAvailable, 
+      cache: redisModule?.getCache?.() || null,
+      isRedisAvailable: redisModule?.isRedisAvailable?.() || false
+    };
+  } catch (error) {
+    // Redis non disponible (Edge Runtime ou erreur)
+    return { available: false, cache: null, isRedisAvailable: false };
+  }
+}
 
 interface RateLimitInfo {
   count: number;
@@ -32,9 +70,17 @@ class RateLimiter {
     };
 
     // Nettoyage périodique des entrées expirées
-    setInterval(() => {
-      this.cleanup();
-    }, this.options.windowMs);
+    // Note: Dans Edge Runtime (middleware), setInterval peut ne pas fonctionner
+    // mais le cleanup se fait aussi lors de chaque requête
+    try {
+      if (useRedis) {
+        setInterval(() => {
+          this.cleanup();
+        }, this.options.windowMs);
+      }
+    } catch (error) {
+      // Ignorer les erreurs (Edge Runtime peut ne pas supporter setInterval)
+    }
   }
 
   private defaultKeyGenerator(request: NextRequest): string {
@@ -96,16 +142,27 @@ class RateLimiter {
     const key = this.options.keyGenerator!(request);
     const now = Date.now();
     
-    // Essayer d'utiliser Redis si disponible
-    if (isRedisAvailable()) {
-      return this.checkLimitRedis(key, now, request);
+    // Nettoyage périodique (se fait aussi à chaque requête si pas de setInterval)
+    // Cela garantit que le cache ne grandit pas indéfiniment dans Edge Runtime
+    if (!useRedis && this.store.size > 1000) {
+      this.cleanup();
     }
     
-    // Fallback vers le cache en mémoire
+    // Essayer d'utiliser Redis si disponible (seulement si pas dans Edge Runtime)
+    try {
+      const redis = await loadRedisIfAvailable();
+      if (redis.available && redis.isRedisAvailable && redis.cache) {
+        return this.checkLimitRedis(key, now, request, redis.cache);
+      }
+    } catch (error) {
+      // Ignorer les erreurs Redis dans Edge Runtime
+    }
+    
+    // Fallback vers le cache en mémoire (toujours disponible)
     return this.checkLimitMemory(key, now, request);
   }
 
-  private async checkLimitRedis(key: string, now: number, request: NextRequest): Promise<{
+  private async checkLimitRedis(key: string, now: number, request: NextRequest, cache: any): Promise<{
     allowed: boolean;
     limit: number;
     remaining: number;
@@ -113,7 +170,6 @@ class RateLimiter {
     retryAfter?: number;
   }> {
     try {
-      const cache = getCache();
       const windowSeconds = Math.ceil(this.options.windowMs / 1000);
       
       // Utiliser une transaction Redis pour atomicité

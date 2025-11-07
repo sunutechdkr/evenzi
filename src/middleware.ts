@@ -40,13 +40,26 @@ const userRoutes = [
   '/dashboard/user'
 ];
 
-// Rate limiters spécialisés
+// Rate limiters spécialisés - Optimisés pour 500-1000 utilisateurs simultanés
 const authRateLimiter = createRateLimiter.auth();
 const apiRateLimiter = createRateLimiter.api();
 const generalRateLimiter = createRateLimiter.general();
+const navigationRateLimiter = createRateLimiter.navigation();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  // 0. EXCLURE LES ROUTES NEXT.JS INTERNES - Pas de rate limiting
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static') ||
+    pathname.startsWith('/api/_next') ||
+    pathname.includes('.') // Fichiers statiques (favicon.ico, images, etc.)
+  ) {
+    const response = NextResponse.next();
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    return response;
+  }
   
   // 1. DÉTECTION BASIQUE D'ATTAQUES - Sans modules Node.js
   const url = request.nextUrl.toString();
@@ -77,14 +90,24 @@ export async function middleware(request: NextRequest) {
     );
   }
   
-  // 2. RATE LIMITING SIMPLIFIÉ - Utiliser le rate limiter existant
+  // 2. RATE LIMITING INTELLIGENT - Optimisé pour 500-1000 utilisateurs
   let rateLimitResult;
   
   if (pathname.startsWith('/api/auth')) {
+    // Authentification - Limites modérées
     rateLimitResult = await applyRateLimit(request, authRateLimiter);
   } else if (pathname.startsWith('/api/')) {
+    // APIs - Limites très permissives
     rateLimitResult = await applyRateLimit(request, apiRateLimiter);
+  } else if (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/event') ||
+    pathname.startsWith('/checkin')
+  ) {
+    // Navigation - Limites très permissives pour éviter les blocages
+    rateLimitResult = await applyRateLimit(request, navigationRateLimiter);
   } else {
+    // Autres routes - Limites générales
     rateLimitResult = await applyRateLimit(request, generalRateLimiter);
   }
   

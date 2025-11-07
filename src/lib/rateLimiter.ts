@@ -145,36 +145,43 @@ class RateLimiter {
 }
 
 // Configuration par défaut pour différents types d'endpoints
+// Optimisé pour 500-1000 utilisateurs simultanés
 export const createRateLimiter = {
-  // Rate limiter général (15 req/min)
+  // Rate limiter général (120 req/min) - Navigation et pages
   general: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 15
+    maxRequests: 120 // Augmenté pour supporter la navigation intensive
   }),
 
-  // Rate limiter strict pour l'authentification (5 req/min)
+  // Rate limiter pour l'authentification (15 req/min) - Plus permissif
   auth: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 5
+    maxRequests: 15 // Augmenté de 5 à 15 pour éviter les blocages lors du login
   }),
 
-  // Rate limiter pour les APIs publiques (100 req/min)
+  // Rate limiter pour les APIs publiques (300 req/min) - Très permissif
   api: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 100,
+    maxRequests: 300, // Augmenté pour supporter les appels API fréquents
     skipSuccessfulRequests: true
   }),
 
-  // Rate limiter pour le check-in (30 req/min)
+  // Rate limiter pour le check-in (100 req/min) - Événements avec beaucoup de participants
   checkin: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 30
+    maxRequests: 100 // Augmenté pour check-in massif
   }),
 
-  // Rate limiter pour les uploads (5 req/min)
+  // Rate limiter pour les uploads (20 req/min) - Plus permissif
   upload: () => new RateLimiter({
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 5
+    maxRequests: 20 // Augmenté pour permettre plusieurs uploads
+  }),
+
+  // Rate limiter pour la navigation (200 req/min) - Très permissif
+  navigation: () => new RateLimiter({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 200 // Spécial pour la navigation intensive
   }),
 
   // Rate limiter personnalisable
@@ -191,33 +198,33 @@ interface RateLimitRule {
 }
 
 const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
-  // Authentification très stricte
+  // Authentification - Plus permissif pour éviter blocages
   '/api/auth': {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 5
+    windowMs: 5 * 60 * 1000, // 5 minutes (réduit de 15)
+    maxRequests: 20 // Augmenté de 5 à 20
   },
   
-  // APIs de création modérément strictes
+  // APIs de création - Plus permissives
   '/api/events': {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 10
+    maxRequests: 50 // Augmenté de 10 à 50
   },
   
   '/api/users': {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 5
+    maxRequests: 30 // Augmenté de 5 à 30
   },
   
-  // APIs de lecture plus permissives
+  // APIs de lecture - Très permissives
   '/api/dashboard': {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 30
+    maxRequests: 100 // Augmenté de 30 à 100
   },
   
-  // Défaut pour toutes les autres routes
+  // Défaut pour toutes les autres routes - Permissif
   'default': {
     windowMs: 60 * 1000, // 1 minute
-    maxRequests: 20
+    maxRequests: 80 // Augmenté de 20 à 80
   }
 };
 

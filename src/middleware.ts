@@ -2,12 +2,8 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
-import { applyRateLimit, createRateLimiter, disableRedisForMiddleware } from './lib/rateLimiter';
+import { applyMiddlewareRateLimit, createMiddlewareRateLimiter } from './lib/rateLimiterMiddleware';
 import { logger } from './lib/logger';
-
-// Désactiver Redis pour le middleware (Edge Runtime ne supporte pas ioredis)
-// Le middleware utilisera uniquement le cache en mémoire
-disableRedisForMiddleware();
 
 // Fonction helper pour obtenir l'IP du client
 function getClientIP(req: NextRequest): string {
@@ -55,11 +51,12 @@ const userRoutes = [
   '/dashboard/user'
 ];
 
-// Rate limiters spécialisés - Optimisés pour 500-1000 utilisateurs simultanés
-const authRateLimiter = createRateLimiter.auth();
-const apiRateLimiter = createRateLimiter.api();
-const generalRateLimiter = createRateLimiter.general();
-const navigationRateLimiter = createRateLimiter.navigation();
+// Rate limiters spécialisés pour middleware (Edge Runtime compatible - sans Redis)
+// Optimisés pour 500-1000 utilisateurs simultanés
+const authRateLimiter = createMiddlewareRateLimiter.auth();
+const apiRateLimiter = createMiddlewareRateLimiter.api();
+const generalRateLimiter = createMiddlewareRateLimiter.general();
+const navigationRateLimiter = createMiddlewareRateLimiter.navigation();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -111,20 +108,20 @@ export async function middleware(request: NextRequest) {
   
   if (pathname.startsWith('/api/auth')) {
     // Authentification - Limites modérées
-    rateLimitResult = await applyRateLimit(request, authRateLimiter);
+    rateLimitResult = await applyMiddlewareRateLimit(request, authRateLimiter);
   } else if (pathname.startsWith('/api/')) {
     // APIs - Limites très permissives
-    rateLimitResult = await applyRateLimit(request, apiRateLimiter);
+    rateLimitResult = await applyMiddlewareRateLimit(request, apiRateLimiter);
   } else if (
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/event') ||
     pathname.startsWith('/checkin')
   ) {
     // Navigation - Limites très permissives pour éviter les blocages
-    rateLimitResult = await applyRateLimit(request, navigationRateLimiter);
+    rateLimitResult = await applyMiddlewareRateLimit(request, navigationRateLimiter);
   } else {
     // Autres routes - Limites générales
-    rateLimitResult = await applyRateLimit(request, generalRateLimiter);
+    rateLimitResult = await applyMiddlewareRateLimit(request, generalRateLimiter);
   }
   
   // Si rate limit dépassé, retourner erreur 429

@@ -148,6 +148,11 @@ class RateLimiter {
       this.cleanup();
     }
     
+    // Si Redis est désactivé (middleware), utiliser uniquement la mémoire
+    if (!useRedis) {
+      return this.checkLimitMemory(key, now, request);
+    }
+    
     // Essayer d'utiliser Redis si disponible (seulement si pas dans Edge Runtime)
     try {
       const redis = await loadRedisIfAvailable();

@@ -8,9 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withCache } from '@/lib/apiCache';
 
 // GET - Récupérer les notifications avec gestion d'erreur robuste
-export async function GET(request: NextRequest) {
+async function getNotificationsHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -148,6 +149,25 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+// Wrapping GET avec cache (1 minute pour les notifications)
+export const GET = withCache(
+  getNotificationsHandler,
+  {
+    ttl: 60, // 1 minute (données temps réel)
+    key: (req: NextRequest) => {
+      const url = req.nextUrl;
+      const isRead = url.searchParams.get('isRead') || 'all';
+      const eventId = url.searchParams.get('eventId') || 'all';
+      const take = url.searchParams.get('take') || '50';
+      const skip = url.searchParams.get('skip') || '0';
+      return `api:notifications:read-${isRead}:event-${eventId}:take-${take}:skip-${skip}`;
+    },
+    shouldCache: (req: NextRequest, res: NextResponse) => {
+      return res.status === 200;
+    }
+  }
+);
 
 // POST - Créer une notification de test
 export async function POST(request: NextRequest) {

@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { format, isPast, isToday } from 'date-fns';
 import prisma from "@/lib/prisma";
+import { withCache } from '@/lib/apiCache';
 
 // Type pour l'activité récente
 interface ActivityItem {
@@ -12,7 +13,8 @@ interface ActivityItem {
   participants: number;
 }
 
-export async function GET() {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function getStatsHandler(_request: NextRequest) {
   try {
     // Récupérer la session de l'utilisateur connecté
     const session = await getServerSession(authOptions);
@@ -112,4 +114,15 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}
+
+// Wrapping GET avec cache (1 minute pour les stats)
+export const GET = withCache(
+  getStatsHandler,
+  {
+    ttl: 60, // 1 minute
+    shouldCache: (req: NextRequest, res: NextResponse) => {
+      return res.status === 200;
+    }
+  }
+); 

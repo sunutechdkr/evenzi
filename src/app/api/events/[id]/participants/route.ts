@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withCache } from '@/lib/apiCache';
 
-export async function GET(
-  request: Request,
+async function getParticipantsHandler(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -10,6 +11,9 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("query") || "";
     const type = searchParams.get("type") || "";
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
     
     if (!id) {
       return NextResponse.json(
@@ -18,13 +22,11 @@ export async function GET(
       );
     }
 
-    // Récupérer l'événement avec son slug pour maintenir la compatibilité
-    const eventQuery = await prisma.$queryRaw`
-      SELECT id, slug FROM events 
-      WHERE id = ${id}
-    `;
-    
-    const event = Array.isArray(eventQuery) && eventQuery.length > 0 ? eventQuery[0] : null;
+    // Vérifier que l'événement existe (avec Prisma optimisé)
+    const event = await prisma.event.findUnique({
+      where: { id },
+      select: { id: true, slug: true }
+    });
 
     if (!event) {
       return NextResponse.json(
@@ -33,45 +35,58 @@ export async function GET(
       );
     }
 
-    // Récupérer les participants qui correspondent au filtre avec SQL direct
-    const participantsQuery = await prisma.$queryRaw`
-      SELECT 
-        id, first_name, last_name, email, phone, job_title, company, type, 
-        checked_in, check_in_time, short_code, created_at
-      FROM 
-        registrations
-      WHERE 
-        event_id = ${id}
-        AND (
-          LOWER(first_name) LIKE LOWER(${'%' + query + '%'})
-          OR LOWER(last_name) LIKE LOWER(${'%' + query + '%'})
-          OR LOWER(email) LIKE LOWER(${'%' + query + '%'})
-          OR LOWER(short_code) LIKE LOWER(${'%' + query + '%'})
-        )
-      ORDER BY 
-        last_name ASC
-      LIMIT 50
-    `;
-    
-    // Transformer les résultats avec camelCase pour le frontend
-    const participants = Array.isArray(participantsQuery) 
-      ? participantsQuery.map(p => ({
-          id: p.id,
-          firstName: p.first_name,
-          lastName: p.last_name,
-          email: p.email,
-          phone: p.phone,
-          jobTitle: p.job_title,
-          company: p.company,
-          type: p.type,
-          checkedIn: p.checked_in,
-          checkInTime: p.check_in_time,
-          shortCode: p.short_code,
-          registrationDate: p.created_at
-        }))
-      : [];
+    // Construire les conditions de recherche
+    const whereClause: any = {
+      eventId: id,
+    };
 
-    return NextResponse.json(participants);
+    if (query) {
+      whereClause.OR = [
+        { firstName: { contains: query, mode: 'insensitive' } },
+        { lastName: { contains: query, mode: 'insensitive' } },
+        { email: { contains: query, mode: 'insensitive' } },
+        { shortCode: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    if (type) {
+      whereClause.type = type;
+    }
+
+    // Récupérer les participants avec pagination
+    const [participants, totalCount] = await Promise.all([
+      prisma.registration.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          jobTitle: true,
+          company: true,
+          type: true,
+          checkedIn: true,
+          checkInTime: true,
+          shortCode: true,
+          createdAt: true,
+        },
+        orderBy: { lastName: 'asc' },
+        take: limit,
+        skip,
+      }),
+      prisma.registration.count({ where: whereClause }),
+    ]);
+
+    return NextResponse.json({
+      participants,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
   } catch (error) {
     console.error("Erreur lors de la récupération des participants:", error);
     return NextResponse.json(
@@ -79,4 +94,24 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
+
+// Wrapping GET avec cache (3 minutes pour les participants)
+export const GET = withCache(
+  getParticipantsHandler,
+  {
+    ttl: 180, // 3 minutes
+    key: (req: NextRequest) => {
+      const url = req.nextUrl;
+      const eventId = url.pathname.split('/')[3];
+      const query = url.searchParams.get('query') || '';
+      const type = url.searchParams.get('type') || '';
+      const page = url.searchParams.get('page') || '1';
+      const limit = url.searchParams.get('limit') || '50';
+      return `api:participants:${eventId}:q-${query}:type-${type}:page-${page}:limit-${limit}`;
+    },
+    shouldCache: (req: NextRequest, res: NextResponse) => {
+      return res.status === 200;
+    }
+  }
+); 

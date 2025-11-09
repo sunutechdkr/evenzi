@@ -83,6 +83,16 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
+  // États pour les sponsors
+  const [sponsors, setSponsors] = useState<Array<{
+    id: string;
+    name: string;
+    logo?: string;
+    level: string;
+  }>>([]);
+  const [selectedSponsors, setSelectedSponsors] = useState<string[]>([]);
+  const [loadingSponsors, setLoadingSponsors] = useState(false);
+
   // États pour les lieux de rendez-vous
   const [locations, setLocations] = useState<Array<{
     id: string;
@@ -165,6 +175,7 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
 
     fetchParticipants();
     fetchLocations();
+    fetchSponsors();
   }, [eventId]);
 
   const fetchLocations = async () => {
@@ -180,6 +191,22 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
       console.error('Erreur lors du chargement des lieux:', error);
     } finally {
       setLoadingLocations(false);
+    }
+  };
+
+  const fetchSponsors = async () => {
+    if (!eventId) return;
+    setLoadingSponsors(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/sponsors`);
+      if (response.ok) {
+        const data = await response.json();
+        setSponsors(data.filter((sponsor: any) => sponsor.visible));
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des sponsors:', error);
+    } finally {
+      setLoadingSponsors(false);
     }
   };
 
@@ -320,6 +347,29 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
         throw new Error(data.message || "Failed to create session");
       }
       
+      const sessionData = await response.json();
+      const sessionId = sessionData.id;
+      
+      // Link selected sponsors to the session
+      if (selectedSponsors.length > 0 && sessionId) {
+        await Promise.all(
+          selectedSponsors.map(async (sponsorId) => {
+            try {
+              await fetch(`/api/events/${eventId}/sessions/${sessionId}/sponsors`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sponsorId })
+              });
+            } catch (error) {
+              console.error(`Error linking sponsor ${sponsorId}:`, error);
+              // Continue even if one sponsor link fails
+            }
+          })
+        );
+      }
+      
       setSuccess(true);
       toast.success("Session created successfully!");
       
@@ -342,6 +392,12 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
       value: p.id,
       label: `${p.firstName} ${p.lastName}`
     }));
+
+  // Transform sponsors to options for MultiSelect
+  const sponsorOptions: Option[] = sponsors.map(s => ({
+    value: s.id,
+    label: s.name
+  }));
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -526,6 +582,25 @@ export default function CreateSessionPage({ params }: { params: Promise<{ id: st
                   loading={loadingParticipants}
                   className="pl-10"
                 />
+              </div>
+              
+              {/* Sponsors */}
+              <div className="mb-4">
+                <Label htmlFor="sponsors" className="block text-sm font-medium text-gray-700 mb-1">
+                  Sponsors (optionnel)
+                </Label>
+                <MultiSelect
+                  options={sponsorOptions}
+                  selected={selectedSponsors}
+                  onChange={setSelectedSponsors}
+                  placeholder="Sélectionner un ou plusieurs sponsors"
+                  searchPlaceholder="Rechercher un sponsor..."
+                  loading={loadingSponsors}
+                  className="pl-10"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ajoutez les sponsors qui soutiennent cette session
+                </p>
               </div>
               
               {/* Capacity */}

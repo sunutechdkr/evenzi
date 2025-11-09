@@ -3,13 +3,10 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 /**
- * Layout racine pour tout le dashboard (/dashboard/*)
+ * Layout pour toutes les pages utilisateur (/dashboard/user/*)
  * Vérification côté SERVEUR - Aucun rendu côté client avant authentification
- * 
- * Ce layout protège TOUTES les pages sous /dashboard
- * Les sous-layouts (user, events, admin, etc.) ajoutent des vérifications de rôle supplémentaires
  */
-export default async function DashboardLayout({
+export default async function UserDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -19,10 +16,17 @@ export default async function DashboardLayout({
   
   // Pas de session → redirection immédiate (aucun HTML envoyé au client)
   if (!session) {
-    redirect('/login?callbackUrl=/dashboard');
+    redirect('/login?callbackUrl=/dashboard/user');
   }
 
-  // Session valide → autoriser le rendu
-  // Les sous-layouts géreront les restrictions de rôle spécifiques
+  // Vérifier que l'utilisateur a bien le rôle USER
+  // Note: ADMIN et ORGANIZER peuvent aussi accéder aux pages USER
+  const userRole = session.user?.role || 'USER';
+  if (userRole !== 'USER' && userRole !== 'ADMIN' && userRole !== 'ORGANIZER') {
+    redirect('/dashboard');
+  }
+
+  // Autorisé → rendre le contenu
   return <>{children}</>;
 }
+

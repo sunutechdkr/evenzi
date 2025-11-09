@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { DashboardClientWrapper } from "@/components/dashboard/DashboardClientWrapper";
 
 /**
  * Layout racine pour tout le dashboard (/dashboard/*)
@@ -22,7 +23,10 @@ export default async function DashboardLayout({
     redirect('/login?callbackUrl=/dashboard');
   }
 
-  // Session valide → autoriser le rendu
-  // Les sous-layouts géreront les restrictions de rôle spécifiques
-  return <>{children}</>;
+  // Session valide → rendre avec le wrapper client (Sidebar + Notifications)
+  return (
+    <DashboardClientWrapper>
+      {children}
+    </DashboardClientWrapper>
+  );
 }

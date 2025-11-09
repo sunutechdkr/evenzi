@@ -81,7 +81,7 @@ export async function GET(
     
     const registrationStatsData = {
       total: registrationStats._count.id || 0,
-      checked_in: checkedInCount || 0,
+      checkedIn: checkedInCount || 0,
     };
     
     // Récupérer le nombre de participants par type (optimisé avec Prisma)
@@ -165,7 +165,7 @@ export async function GET(
       },
       registrations: {
         total: registrationStatsData.total,
-        checkedIn: registrationStatsData.checked_in,
+        checkedIn: registrationStatsData.checkedIn,
       },
       participantTypes,
       topSessions,

@@ -1,137 +1,176 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: eventId } = await params;
     
-    // Récupérer le paramètre de période depuis l'URL
-    const url = new URL(request.url);
-    const period = url.searchParams.get('period') || '7j';
-    
-    // Vérifier si l'événement existe avec une requête prisma brute
-    const eventQuery = await prisma.$queryRaw`
-      SELECT 
-        id, 
-        name, 
-        start_date as "startDate", 
-        end_date as "endDate",
-        created_at as "createdAt"
-      FROM events
-      WHERE id = ${eventId}
-      LIMIT 1
-    `;
-    
-    // Vérifier si l'événement a été trouvé
-    if (!Array.isArray(eventQuery) || eventQuery.length === 0) {
+    // Vérification de l'authentification
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json(
-        { message: "Event not found" },
+        { error: "Non autorisé" },
+        { status: 401 }
+      );
+    }
+    
+    // Vérifier que l'événement existe et appartient à l'utilisateur (ou qu'il est ADMIN)
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        ...(session.user.role !== 'ADMIN' ? { userId: session.user.id } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        start_date: true,
+        end_date: true,
+        created_at: true,
+      },
+    });
+    
+    if (!event) {
+      return NextResponse.json(
+        { error: "Événement non trouvé ou accès non autorisé" },
         { status: 404 }
       );
     }
     
-    const event = eventQuery[0];
+    // Récupérer le paramètre de période depuis l'URL
+    const url = new URL(request.url);
+    const period = url.searchParams.get('period') || '7j';
     
-    // Récupérer les statistiques d'inscription
-    const registrationStatsQuery = await prisma.$queryRaw`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN checked_in = true THEN 1 ELSE 0 END) as checked_in
-      FROM registrations
-      WHERE event_id = ${eventId}
-    `;
+    // Valider le paramètre period
+    const validPeriods = ['7j', '30j', 'all'];
+    const validatedPeriod = validPeriods.includes(period) ? period : '7j';
     
-    const registrationStats = Array.isArray(registrationStatsQuery) && registrationStatsQuery.length > 0
-      ? registrationStatsQuery[0]
-      : { total: 0, checked_in: 0 };
+    // Calculer la date de début selon la période
+    const now = new Date();
+    let startDate: Date | null = null;
+    if (validatedPeriod === '7j') {
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (validatedPeriod === '30j') {
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
     
-    // Récupérer le nombre de participants par type
-    const participantTypesQuery = await prisma.$queryRaw`
-      SELECT 
-        type, 
-        COUNT(*) as count
-      FROM registrations
-      WHERE event_id = ${eventId}
-      GROUP BY type
-      ORDER BY count DESC
-    `;
+    // Utiliser l'événement déjà récupéré avec Prisma (plus sécurisé)
     
-    const participantTypes = Array.isArray(participantTypesQuery)
-      ? participantTypesQuery.map(type => ({
-          type: type.type,
-          count: Number(type.count)
-        }))
-      : [];
+    // Récupérer les statistiques d'inscription (optimisé avec Prisma)
+    const registrationStats = await prisma.registration.aggregate({
+      where: {
+        eventId: eventId,
+        ...(startDate ? { created_at: { gte: startDate } } : {}),
+      },
+      _count: {
+        id: true,
+      },
+    });
     
-    // Récupérer les sessions de l'événement avec le nombre de participants pour chacune
-    const sessionsQuery = await prisma.$queryRaw`
-      SELECT 
-        es.id,
-        es.title,
-        COUNT(sp.id) as participant_count
-      FROM 
-        event_sessions es
-      LEFT JOIN 
-        session_participants sp ON es.id = sp.session_id
-      WHERE 
-        es.event_id = ${eventId}
-      GROUP BY 
-        es.id, es.title
-      ORDER BY 
-        participant_count DESC
-      LIMIT 5
-    `;
+    const checkedInCount = await prisma.registration.count({
+      where: {
+        eventId: eventId,
+        checked_in: true,
+        ...(startDate ? { created_at: { gte: startDate } } : {}),
+      },
+    });
     
-    const topSessions = Array.isArray(sessionsQuery)
-      ? sessionsQuery.map(session => ({
-          id: session.id,
-          title: session.title,
-          participantCount: Number(session.participant_count)
-        }))
-      : [];
+    const registrationStatsData = {
+      total: registrationStats._count.id || 0,
+      checked_in: checkedInCount || 0,
+    };
     
-    // Récupérer les inscriptions par jour pour les 7 derniers jours
-    const dailyRegistrationsQuery = await prisma.$queryRaw`
-      SELECT 
-        DATE(created_at) as date,
-        COUNT(*) as count
-      FROM 
-        registrations
-      WHERE 
-        event_id = ${eventId}
-        AND created_at > CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY 
-        DATE(created_at)
-      ORDER BY 
-        date ASC
-    `;
+    // Récupérer le nombre de participants par type (optimisé avec Prisma)
+    const participantTypesRaw = await prisma.registration.groupBy({
+      by: ['type'],
+      where: {
+        eventId: eventId,
+        ...(startDate ? { created_at: { gte: startDate } } : {}),
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+    });
     
-    const dailyRegistrations = Array.isArray(dailyRegistrationsQuery)
-      ? dailyRegistrationsQuery.map(day => ({
-          date: day.date,
-          count: Number(day.count)
-        }))
-      : [];
+    const participantTypes = participantTypesRaw.map((item: { type: string | null; _count: { id: number } }) => ({
+      type: item.type || 'N/A',
+      count: item._count.id || 0,
+    }));
+    
+    // Récupérer les sessions de l'événement avec le nombre de participants (optimisé avec Prisma)
+    const allSessions = await prisma.event_sessions.findMany({
+      where: {
+        event_id: eventId,
+      },
+      select: {
+        id: true,
+        title: true,
+        _count: {
+          select: {
+            participants: true,
+          },
+        },
+      },
+    });
+    
+    // Trier par nombre de participants et prendre le top 5
+    const topSessions = allSessions
+      .map((session: { id: string; title: string; _count: { participants: number } }) => ({
+        id: session.id,
+        title: session.title,
+        participantCount: session._count.participants || 0,
+      }))
+      .sort((a: { participantCount: number }, b: { participantCount: number }) => b.participantCount - a.participantCount)
+      .slice(0, 5);
+    
+    // Récupérer les inscriptions par jour (optimisé avec Prisma)
+    // Utiliser une requête groupée par date
+    const registrationsByDate = await prisma.registration.findMany({
+      where: {
+        eventId: eventId,
+        ...(startDate ? { created_at: { gte: startDate } } : {}),
+      },
+      select: {
+        created_at: true,
+      },
+    });
+    
+    // Grouper par date
+    const dailyRegistrationsMap = new Map<string, number>();
+    registrationsByDate.forEach((reg: { created_at: Date }) => {
+      const date = new Date(reg.created_at).toISOString().split('T')[0];
+      dailyRegistrationsMap.set(date, (dailyRegistrationsMap.get(date) || 0) + 1);
+    });
+    
+    const dailyRegistrations = Array.from(dailyRegistrationsMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
     
     // Formater les résultats
     const stats = {
       event: {
         id: event.id,
         name: event.name,
-        startDate: event.startDate,
-        endDate: event.endDate
+        startDate: event.start_date?.toISOString() || null,
+        endDate: event.end_date?.toISOString() || null,
       },
       registrations: {
-        total: Number(registrationStats.total) || 0,
-        checkedIn: Number(registrationStats.checked_in) || 0
+        total: registrationStatsData.total,
+        checkedIn: registrationStatsData.checked_in,
       },
       participantTypes,
       topSessions,
       dailyRegistrations,
-      period: period
+      period: validatedPeriod,
     };
     
     // Retourner les statistiques

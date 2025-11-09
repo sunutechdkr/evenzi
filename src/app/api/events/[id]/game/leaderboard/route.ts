@@ -84,8 +84,13 @@ export async function GET(
       topScorer,
     };
 
+    // Limiter à top 3 + 10 participants supplémentaires (total 13 max)
+    // Cela optimise le chargement en ne retournant que les participants nécessaires
+    // Top 3 pour le podium + 10 autres pour le tableau = 13 participants max
+    const limitedParticipants = mockParticipants.slice(0, 13);
+
     return NextResponse.json({
-      participants: mockParticipants,
+      participants: limitedParticipants,
       stats,
     });
 

@@ -48,9 +48,33 @@ export function UserProfile({ isExpanded = true }: { isExpanded: boolean }) {
     return 'U';
   };
   
-  // Fonction pour déconnexion
-  const handleSignOut = () => {
-    signOut({ redirect: true, callbackUrl: '/' });
+  // Fonction pour déconnexion améliorée
+  const handleSignOut = async () => {
+    try {
+      // Appeler l'API de déconnexion pour logging (optionnel, ne bloque pas si échec)
+      try {
+        await fetch('/api/auth/logout', { 
+          method: 'POST',
+          credentials: 'include' // Inclure les cookies pour l'authentification
+        });
+      } catch (apiError) {
+        // Ignorer les erreurs de l'API, ne pas bloquer la déconnexion
+        console.warn('Logout API call failed, continuing with signOut:', apiError);
+      }
+      
+      // Déconnexion NextAuth (supprime automatiquement les cookies)
+      await signOut({ 
+        redirect: true, 
+        callbackUrl: '/login' // Rediriger vers login au lieu de '/'
+      });
+    } catch (error) {
+      // En cas d'erreur, forcer la déconnexion quand même
+      console.error('Error during signOut:', error);
+      await signOut({ 
+        redirect: true, 
+        callbackUrl: '/login' 
+      });
+    }
   };
 
   // Fonction pour aller au profil

@@ -88,6 +88,42 @@ async function getStatsHandler(_request: NextRequest) {
     // Simuler des statistiques de revenus (dans une vraie app, cela viendrait d'un autre modèle)
     const totalRevenue = isAdmin ? Math.floor(totalRegistrations * 25) : Math.floor(userRegistrations * 25);
     
+    // Calculer les Monthly Active Users (MAU) - Utilisateurs actifs dans les 30 derniers jours
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    let monthlyActiveUsers = 0;
+    try {
+      monthlyActiveUsers = await prisma.user.count({
+        where: {
+          lastLogin: {
+            gte: thirtyDaysAgo // Connexion dans les 30 derniers jours
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('⚠️ Erreur lors du calcul des MAU:', err);
+      monthlyActiveUsers = 0;
+    }
+    
+    // Calculer les Daily Active Users (DAU) - Utilisateurs actifs aujourd'hui
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let dailyActiveUsers = 0;
+    try {
+      dailyActiveUsers = await prisma.user.count({
+        where: {
+          lastLogin: {
+            gte: today // Connexion aujourd'hui
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('⚠️ Erreur lors du calcul des DAU:', err);
+      dailyActiveUsers = 0;
+    }
+    
     // Construire la réponse selon le rôle
     const stats = {
       totalEvents: eventsArray.length,
@@ -100,6 +136,9 @@ async function getStatsHandler(_request: NextRequest) {
       checkInRate,
       totalRevenue,
       recentActivity,
+      // Statistiques d'utilisateurs actifs
+      monthlyActiveUsers, // MAU : Utilisateurs avec connexion dans les 30 derniers jours
+      dailyActiveUsers,   // DAU : Utilisateurs avec connexion aujourd'hui
       // Ajouter des informations sur les mois pour les comparaisons
       currentMonth: new Date().toLocaleString('default', { month: 'long' }),
       previousMonth: new Date(new Date().setMonth(new Date().getMonth() - 1)).toLocaleString('default', { month: 'long' })

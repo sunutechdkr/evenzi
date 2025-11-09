@@ -64,7 +64,7 @@ export async function GET(
     const registrationStats = await prisma.registration.aggregate({
       where: {
         eventId: eventId,
-        ...(startDate ? { created_at: { gte: startDate } } : {}),
+        ...(startDate ? { createdAt: { gte: startDate } } : {}),
       },
       _count: {
         id: true,
@@ -74,8 +74,8 @@ export async function GET(
     const checkedInCount = await prisma.registration.count({
       where: {
         eventId: eventId,
-        checked_in: true,
-        ...(startDate ? { created_at: { gte: startDate } } : {}),
+        checkedIn: true,
+        ...(startDate ? { createdAt: { gte: startDate } } : {}),
       },
     });
     
@@ -89,7 +89,7 @@ export async function GET(
       by: ['type'],
       where: {
         eventId: eventId,
-        ...(startDate ? { created_at: { gte: startDate } } : {}),
+        ...(startDate ? { createdAt: { gte: startDate } } : {}),
       },
       _count: {
         id: true,
@@ -109,7 +109,7 @@ export async function GET(
     // Récupérer les sessions de l'événement avec le nombre de participants (optimisé avec Prisma)
     const allSessions = await prisma.event_sessions.findMany({
       where: {
-        event_id: eventId,
+        eventId: eventId,
       },
       select: {
         id: true,
@@ -137,17 +137,17 @@ export async function GET(
     const registrationsByDate = await prisma.registration.findMany({
       where: {
         eventId: eventId,
-        ...(startDate ? { created_at: { gte: startDate } } : {}),
+        ...(startDate ? { createdAt: { gte: startDate } } : {}),
       },
       select: {
-        created_at: true,
+        createdAt: true,
       },
     });
     
     // Grouper par date
     const dailyRegistrationsMap = new Map<string, number>();
-    registrationsByDate.forEach((reg: { created_at: Date }) => {
-      const date = new Date(reg.created_at).toISOString().split('T')[0];
+    registrationsByDate.forEach((reg: { createdAt: Date }) => {
+      const date = new Date(reg.createdAt).toISOString().split('T')[0];
       dailyRegistrationsMap.set(date, (dailyRegistrationsMap.get(date) || 0) + 1);
     });
     

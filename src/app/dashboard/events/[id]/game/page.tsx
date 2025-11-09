@@ -74,13 +74,17 @@ type GameStats = {
 export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const [eventId, setEventId] = useState<string>("");
   const [event, setEvent] = useState<Event | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [topThree, setTopThree] = useState<Participant[]>([]);
+  const [otherParticipants, setOtherParticipants] = useState<Participant[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [gameStats, setGameStats] = useState<GameStats>({
     totalParticipants: 0,
     totalPoints: 0,
     averagePoints: 0
   });
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   // Configuration des challenges
@@ -172,13 +176,29 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  const fetchGameData = async () => {
-    setLoading(true);
+  const fetchGameData = async (loadMore = false) => {
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setOffset(0);
+    }
+    
     try {
-      const response = await fetch(`/api/events/${eventId}/game/leaderboard`);
+      const currentOffset = loadMore ? offset : 0;
+      const response = await fetch(`/api/events/${eventId}/game/leaderboard?limit=10&offset=${currentOffset}`);
       if (response.ok) {
         const data = await response.json();
-        setParticipants(data.participants || []);
+        
+        if (loadMore) {
+          setOtherParticipants(prev => [...prev, ...(data.others || [])]);
+        } else {
+          setTopThree(data.topThree || []);
+          setOtherParticipants(data.others || []);
+        }
+        
+        setHasMore(data.hasMore || false);
+        setOffset(currentOffset + 10);
         setGameStats(data.stats || {
           totalParticipants: 0,
           totalPoints: 0,
@@ -193,7 +213,12 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       toast.error("Erreur lors du chargement des données");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const loadMoreParticipants = () => {
+    fetchGameData(true);
   };
 
   const refreshData = async () => {
@@ -233,9 +258,6 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  // Séparer le top 3 des autres participants
-  const topThree = participants.slice(0, 3);
-  const otherParticipants = participants.slice(3);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -345,7 +367,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                       <div className="spinner"></div>
                       <p className="ml-3 text-gray-500">Chargement du classement...</p>
                     </div>
-                  ) : participants.length === 0 ? (
+                  ) : topThree.length === 0 && otherParticipants.length === 0 ? (
                     <div className="text-center py-20">
                       <TrophyIcon className="mx-auto h-12 w-12 text-gray-400" />
                       <h3 className="mt-2 text-sm font-medium text-gray-900">Aucun participant</h3>
@@ -451,6 +473,27 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                               </TableBody>
                             </Table>
                           </div>
+                          
+                          {/* Bouton Charger plus */}
+                          {hasMore && (
+                            <div className="mt-6 text-center">
+                              <Button
+                                onClick={loadMoreParticipants}
+                                disabled={loadingMore}
+                                variant="outline"
+                                className="w-full sm:w-auto"
+                              >
+                                {loadingMore ? (
+                                  <>
+                                    <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" />
+                                    Chargement...
+                                  </>
+                                ) : (
+                                  'Voir plus de participants'
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

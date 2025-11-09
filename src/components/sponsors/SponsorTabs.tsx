@@ -458,10 +458,10 @@ export function SponsorMembersTab({ sponsor }: TabProps) {
   const [deletingMember, setDeletingMember] = React.useState(false);
 
   const fetchMembers = React.useCallback(async () => {
-    if (!sponsor.id) return;
+    if (!sponsor.id || !sponsor.eventId) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/events/sponsors/${sponsor.id}/members`);
+      const response = await fetch(`/api/events/${sponsor.eventId}/sponsors/${sponsor.id}/members`);
       if (response.ok) {
         const data = await response.json();
         setMembers(data);
@@ -475,7 +475,7 @@ export function SponsorMembersTab({ sponsor }: TabProps) {
     } finally {
       setLoading(false);
     }
-  }, [sponsor.id]);
+  }, [sponsor.id, sponsor.eventId]);
 
   React.useEffect(() => {
     fetchMembers();
@@ -513,8 +513,14 @@ export function SponsorMembersTab({ sponsor }: TabProps) {
     
     setDeletingMember(true);
     try {
-      const response = await fetch(`/api/events/sponsors/${sponsor.id}/members?participantId=${memberToDelete.id}`, {
+      const response = await fetch(`/api/events/${sponsor.eventId}/sponsors/${sponsor.id}/members`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          participantId: memberToDelete.participant?.id || memberToDelete.id 
+        }),
       });
 
       if (response.ok) {
@@ -995,16 +1001,19 @@ export function SponsorDocumentsTab({ sponsor, isEditing, editedSponsor, setEdit
 }
 
 // Composant Onglet Sessions
-export function SponsorSessionsTab({ sponsor }: TabProps) {
+export function SponsorSessionsTab({ sponsor, isEditing }: TabProps) {
   const [sessions, setSessions] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [showLinkDialog, setShowLinkDialog] = React.useState(false);
+  const [availableSessions, setAvailableSessions] = React.useState<any[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = React.useState(false);
+  const [linking, setLinking] = React.useState(false);
 
-  const fetchSessions = async () => {
-    if (!sponsor.eventId) return;
+  const fetchSessions = React.useCallback(async () => {
+    if (!sponsor.eventId || !sponsor.id) return;
     setLoading(true);
     try {
-      // Rechercher les sessions où le sponsor est mentionné ou participe
-      const response = await fetch(`/api/events/${sponsor.eventId}/sessions?sponsor=${encodeURIComponent(sponsor.name)}`);
+      const response = await fetch(`/api/events/${sponsor.eventId}/sponsors/${sponsor.id}/sessions`);
       if (response.ok) {
         const data = await response.json();
         setSessions(data);
@@ -1018,71 +1027,244 @@ export function SponsorSessionsTab({ sponsor }: TabProps) {
     } finally {
       setLoading(false);
     }
+  }, [sponsor.eventId, sponsor.id]);
+
+  const fetchAvailableSessions = async () => {
+    if (!sponsor.eventId) return;
+    setLoadingAvailable(true);
+    try {
+      const response = await fetch(`/api/events/${sponsor.eventId}/sessions`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filtrer les sessions déjà liées
+        const linkedSessionIds = sessions.map(s => s.sessionId || s.session?.id);
+        const available = (data.sessions || data).filter(
+          (s: any) => !linkedSessionIds.includes(s.id)
+        );
+        setAvailableSessions(available);
+      } else {
+        console.error('Erreur lors du chargement des sessions disponibles');
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des sessions disponibles:', error);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  };
+
+  const handleOpenLinkDialog = () => {
+    fetchAvailableSessions();
+    setShowLinkDialog(true);
+  };
+
+  const handleLinkSession = async (sessionId: string) => {
+    setLinking(true);
+    try {
+      const response = await fetch(`/api/events/${sponsor.eventId}/sponsors/${sponsor.id}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (response.ok) {
+        await fetchSessions();
+        setShowLinkDialog(false);
+      } else {
+        console.error('Erreur lors de la liaison de la session');
+        alert('Erreur lors de la liaison de la session');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la liaison de la session:', error);
+      alert('Erreur lors de la liaison de la session');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleUnlinkSession = async (sessionId: string) => {
+    if (!confirm('Voulez-vous vraiment délier cette session du sponsor ?')) return;
+    
+    try {
+      const response = await fetch(`/api/events/${sponsor.eventId}/sponsors/${sponsor.id}/sessions`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (response.ok) {
+        await fetchSessions();
+      } else {
+        console.error('Erreur lors de la déliaison de la session');
+        alert('Erreur lors de la déliaison de la session');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la déliaison de la session:', error);
+      alert('Erreur lors de la déliaison de la session');
+    }
   };
 
   React.useEffect(() => {
     fetchSessions();
-  }, [sponsor.eventId, sponsor.name]);
+  }, [fetchSessions]);
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-900">Sessions du sponsor</h3>
-        <p className="text-sm text-gray-500">
-          Sessions animées ou sponsorisées par {sponsor.name}
-        </p>
+    <>
+      <div className="space-y-6">
+        {/* En-tête avec bouton d'ajout */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">Sessions du sponsor</h3>
+            <p className="text-sm text-gray-500">
+              Sessions sponsorisées par {sponsor.name}
+            </p>
+          </div>
+          {isEditing && (
+            <Button
+              onClick={handleOpenLinkDialog}
+              size="sm"
+              className="bg-[#81B441] hover:bg-[#6fa030]"
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Lier à une session
+            </Button>
+          )}
+        </div>
+
+        {/* Liste des sessions */}
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#81B441] border-r-transparent"></div>
+            <p className="mt-2 text-sm text-gray-500">Chargement des sessions...</p>
+          </div>
+        ) : sessions.length > 0 ? (
+          <div className="space-y-4">
+            {sessions.map((item, index) => {
+              const session = item.session || item;
+              return (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{session.title}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{session.description}</p>
+                      <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                        <span>🗓️ {session.start_date ? format(new Date(session.start_date), "dd MMM yyyy", { locale: fr }) : 'Date non définie'}</span>
+                        <span>⏰ {session.start_time || '00:00'} - {session.end_time || '00:00'}</span>
+                        <span>📍 {session.location || 'Lieu non défini'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => console.log('Voir session:', session.id)}
+                      >
+                        Voir détails
+                      </Button>
+                      {isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUnlinkSession(session.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🎯</span>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune session</h3>
+            <p className="text-sm text-gray-500">
+              Ce sponsor n&apos;est associé à aucune session pour le moment.
+            </p>
+            {isEditing && (
+              <Button
+                onClick={handleOpenLinkDialog}
+                className="mt-4 bg-[#81B441] hover:bg-[#6fa030]"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Lier une session
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Liste des sessions */}
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#81B441] border-r-transparent"></div>
-          <p className="mt-2 text-sm text-gray-500">Chargement des sessions...</p>
-        </div>
-      ) : sessions.length > 0 ? (
-        <div className="space-y-4">
-          {sessions.map((session, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{session.title}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{session.description}</p>
-                  <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                    <span>🗓️ {session.start_date ? format(new Date(session.start_date), "dd MMM yyyy", { locale: fr }) : 'Date non définie'}</span>
-                    <span>⏰ {session.start_time || '00:00'} - {session.end_time || '00:00'}</span>
-                    <span>📍 {session.location || 'Lieu non défini'}</span>
-                  </div>
-                  {session.speakers && session.speakers.length > 0 && (
-                    <div className="mt-2">
-                      <span className="text-sm text-gray-500">
-                        Intervenant(s): {session.speakers.map((s: any) => `${s.firstName} ${s.lastName}`).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => console.log('Voir session:', session.id)}
-                >
-                  Voir détails
-                </Button>
-              </div>
+      {/* Dialog pour lier des sessions */}
+      {showLinkDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Lier une session</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Sélectionnez une session à lier au sponsor
+              </p>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🎯</span>
+            <ScrollArea className="max-h-[60vh] p-6">
+              {loadingAvailable ? (
+                <div className="text-center py-8">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#81B441] border-r-transparent"></div>
+                  <p className="mt-2 text-sm text-gray-500">Chargement...</p>
+                </div>
+              ) : availableSessions.length > 0 ? (
+                <div className="space-y-3">
+                  {availableSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => !linking && handleLinkSession(session.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{session.title}</h4>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{session.description}</p>
+                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                            <span>🗓️ {session.start_date ? format(new Date(session.start_date), "dd MMM yyyy", { locale: fr }) : 'Date non définie'}</span>
+                            <span>⏰ {session.start_time || '00:00'}</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={linking}
+                          className="bg-[#81B441] hover:bg-[#6fa030]"
+                        >
+                          {linking ? 'Liaison...' : 'Ajouter'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">
+                    Toutes les sessions sont déjà liées à ce sponsor
+                  </p>
+                </div>
+              )}
+            </ScrollArea>
+            <div className="p-4 border-t border-gray-200 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowLinkDialog(false)}
+              >
+                Fermer
+              </Button>
+            </div>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune session</h3>
-          <p className="text-sm text-gray-500">
-            Ce sponsor n&apos;est associé à aucune session pour le moment.
-          </p>
         </div>
       )}
-    </div>
+    </>
   );
 }

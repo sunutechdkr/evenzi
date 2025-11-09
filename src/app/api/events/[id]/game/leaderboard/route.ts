@@ -18,6 +18,11 @@ export async function GET(
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    // Paramètres de pagination
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '10', 10);
+    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
     // Vérifier que l'événement existe et appartient à l'utilisateur
     const event = await prisma.event.findFirst({
       where: {
@@ -39,12 +44,13 @@ export async function GET(
       where: {
         eventId: eventId,
       },
-      include: {
-        // userEventScores: {
-        //   where: {
-        //     eventId: eventId,
-        //   },
-        // },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        company: true,
+        jobTitle: true,
       },
       orderBy: {
         firstName: 'asc',
@@ -71,6 +77,13 @@ export async function GET(
       participant.rank = index + 1;
     });
 
+    // Séparer top 3 et autres
+    const topThree = mockParticipants.slice(0, 3);
+    const othersStart = 3 + offset;
+    const othersEnd = othersStart + limit;
+    const others = mockParticipants.slice(othersStart, othersEnd);
+    const hasMore = othersEnd < mockParticipants.length;
+
     // Calculer les statistiques
     const totalParticipants = mockParticipants.length;
     const totalPoints = mockParticipants.reduce((sum, p) => sum + p.totalPoints, 0);
@@ -85,7 +98,10 @@ export async function GET(
     };
 
     return NextResponse.json({
-      participants: mockParticipants,
+      topThree,
+      others,
+      hasMore,
+      total: totalParticipants,
       stats,
     });
 

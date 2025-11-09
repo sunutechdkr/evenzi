@@ -164,6 +164,7 @@ model Registration {
   ticket               Ticket?              @relation(fields: [ticketId], references: [id])
   sessions             SessionParticipant[]
   userEventScores      UserEventScore[]
+  SponsorMember        SponsorMember[]
 
   @@map("registrations")
 }
@@ -191,49 +192,77 @@ model Ticket {
 }
 
 model event_sessions {
-  id           String               @id
-  title        String
-  description  String?
-  start_date   DateTime
-  end_date     DateTime
-  start_time   String
-  end_time     String
-  location     String?
-  speaker      String?
-  capacity     Int?
-  event_id     String
-  created_at   DateTime             @default(now())
-  updated_at   DateTime
-  banner       String?
-  format       String?
-  video_url    String?
-  events       Event                @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  participants SessionParticipant[]
+  id             String               @id
+  title          String
+  description    String?
+  start_date     DateTime
+  end_date       DateTime
+  start_time     String
+  end_time       String
+  location       String?
+  speaker        String?
+  capacity       Int?
+  event_id       String
+  created_at     DateTime             @default(now())
+  updated_at     DateTime
+  banner         String?
+  format         String?
+  video_url      String?
+  events         Event                @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  participants   SessionParticipant[]
+  SponsorSession SponsorSession[]
 }
 
 model Sponsor {
-  id          String       @id @default(cuid())
+  id          String           @id @default(cuid())
   name        String
   description String?
   logo        String?
   website     String?
-  level       SponsorLevel @default(GOLD)
-  visible     Boolean      @default(true)
-  eventId     String       @map("event_id")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  level       SponsorLevel     @default(GOLD)
+  visible     Boolean          @default(true)
+  eventId     String           @map("event_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
   address     String?
   documents   Json?
   email       String?
-  facebookUrl String?      @map("facebook_url")
-  linkedinUrl String?      @map("linkedin_url")
+  facebookUrl String?          @map("facebook_url")
+  linkedinUrl String?          @map("linkedin_url")
   location    String?
   mobile      String?
   phone       String?
-  twitterUrl  String?      @map("twitter_url")
-  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  twitterUrl  String?          @map("twitter_url")
+  event       Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  members     SponsorMember[]
+  sessions    SponsorSession[]
 
   @@map("sponsors")
+}
+
+model SponsorMember {
+  id            String       @id @default(cuid())
+  sponsorId     String       @map("sponsor_id")
+  participantId String       @map("participant_id")
+  role          String?
+  addedAt       DateTime     @default(now()) @map("added_at")
+  sponsor       Sponsor      @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  participant   Registration @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([sponsorId, participantId])
+  @@map("sponsor_members")
+}
+
+model SponsorSession {
+  id        String         @id @default(cuid())
+  sponsorId String         @map("sponsor_id")
+  sessionId String         @map("session_id")
+  addedAt   DateTime       @default(now()) @map("added_at")
+  sponsor   Sponsor        @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  session   event_sessions @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sponsorId, sessionId])
+  @@map("sponsor_sessions")
 }
 
 model SessionParticipant {

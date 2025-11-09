@@ -66,10 +66,14 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const sponsorFilter = searchParams.get("sponsor");
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const skip = (page - 1) * limit;
     
     // Vérifier que l'événement existe
     const event = await prisma.event.findUnique({
       where: { id },
+      select: { id: true } // Sélectionner uniquement l'ID
     });
     
     if (!event) {
@@ -116,30 +120,51 @@ export async function GET(
       };
     }
 
-    // Récupérer toutes les sessions de l'événement avec les participants
-    const sessions = await prisma.event_sessions.findMany({
-      where: whereCondition,
-      include: {
-        participants: {
-          include: {
-            participant: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                type: true,
-                checkedIn: true,
+    // Récupérer les sessions et le total en parallèle pour optimiser
+    const [sessions, total] = await Promise.all([
+      prisma.event_sessions.findMany({
+        where: whereCondition,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          start_date: true,
+          end_date: true,
+          start_time: true,
+          end_time: true,
+          location: true,
+          speaker: true,
+          capacity: true,
+          format: true,
+          banner: true,
+          video_url: true,
+          event_id: true,
+          created_at: true,
+          updated_at: true,
+          participants: {
+            select: {
+              participant: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  type: true,
+                  checkedIn: true,
+                }
               }
             }
           }
-        }
-      },
-      orderBy: [
-        { start_date: 'asc' },
-        { start_time: 'asc' }
-      ]
-    }) as SessionWithParticipants[];
+        },
+        orderBy: [
+          { start_date: 'asc' },
+          { start_time: 'asc' }
+        ],
+        skip,
+        take: limit
+      }) as Promise<SessionWithParticipants[]>,
+      prisma.event_sessions.count({ where: whereCondition })
+    ]);
 
     // Transformer les données pour inclure les informations des participants inscrits
     const transformedSessions = sessions.map((sessionItem: SessionWithParticipants) => {
@@ -166,7 +191,17 @@ export async function GET(
       };
     });
 
-    return NextResponse.json(transformedSessions);
+    // Retourner avec métadonnées de pagination
+    return NextResponse.json({
+      sessions: transformedSessions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: skip + limit < total
+      }
+    });
   } catch (error) {
     console.error("Erreur lors de la récupération des sessions:", error);
     return NextResponse.json(

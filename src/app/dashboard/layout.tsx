@@ -1,35 +1,32 @@
-"use client";
-
-import { useState } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/dashboard/AppSidebar";
-import { AdminNotificationPanel } from "@/components/dashboard/NotificationPanel";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { DashboardClientWrapper } from "@/components/dashboard/DashboardClientWrapper";
 
 /**
- * Layout pour toutes les pages du dashboard
+ * Layout racine pour tout le dashboard (/dashboard/*)
+ * Vérification côté SERVEUR - Aucun rendu côté client avant authentification
  * 
- * Ce composant enveloppe toutes les pages sous le chemin /dashboard
- * avec le nouveau système Shadcn Sidebar
+ * Ce layout protège TOUTES les pages sous /dashboard
+ * Les sous-layouts (user, events, admin, etc.) ajoutent des vérifications de rôle supplémentaires
  */
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [showNotifications, setShowNotifications] = useState(false);
+  // Vérification côté SERVEUR (bloque tout rendu avant vérification)
+  const session = await getServerSession(authOptions);
+  
+  // Pas de session → redirection immédiate (aucun HTML envoyé au client)
+  if (!session) {
+    redirect('/login?callbackUrl=/dashboard');
+  }
 
+  // Session valide → rendre avec le wrapper client (Sidebar + Notifications)
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar onNotificationToggle={setShowNotifications} />
-        <main className="flex-1 overflow-y-auto bg-gray-50">
-          {children}
-        </main>
-        <AdminNotificationPanel 
-          show={showNotifications} 
-          onClose={() => setShowNotifications(false)} 
-        />
-      </div>
-    </SidebarProvider>
+    <DashboardClientWrapper>
+      {children}
+    </DashboardClientWrapper>
   );
-} 
+}

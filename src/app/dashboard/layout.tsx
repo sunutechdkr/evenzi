@@ -1,14 +1,10 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { DashboardClientWrapper } from "@/components/dashboard/DashboardClientWrapper";
 
 /**
  * Layout racine pour tout le dashboard (/dashboard/*)
- * Vérification côté SERVEUR - Aucun rendu côté client avant authentification
- * 
- * Ce layout protège TOUTES les pages sous /dashboard
- * Les sous-layouts (user, events, admin, etc.) ajoutent des vérifications de rôle supplémentaires
+ * Vérification côté SERVEUR uniquement - Les sidebars sont gérés par chaque page
  */
 export default async function DashboardLayout({
   children,
@@ -23,10 +19,6 @@ export default async function DashboardLayout({
     redirect('/login?callbackUrl=/dashboard');
   }
 
-  // Session valide → rendre avec le wrapper client (Sidebar + Notifications)
-  return (
-    <DashboardClientWrapper>
-      {children}
-    </DashboardClientWrapper>
-  );
+  // Session valide → rendre le contenu (chaque page gère son propre sidebar)
+  return <>{children}</>;
 }

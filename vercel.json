@@ -6,8 +6,29 @@
     "SKIP_ENV_VALIDATION": "1"
   },
   "functions": {
+    "src/app/api/user/stats/route.ts": {
+      "maxDuration": 10
+    },
+    "src/app/api/dashboard/stats/route.ts": {
+      "maxDuration": 10
+    },
+    "src/app/api/events/route.ts": {
+      "maxDuration": 15
+    },
+    "src/app/api/events/[id]/route.ts": {
+      "maxDuration": 15
+    },
+    "src/app/api/notifications-v2/route.ts": {
+      "maxDuration": 10
+    },
+    "src/app/api/events/[id]/participants/route.ts": {
+      "maxDuration": 15
+    },
+    "src/app/api/events/[id]/sessions/*/route.ts": {
+      "maxDuration": 15
+    },
     "src/app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 25
     }
   }
 } 

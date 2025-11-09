@@ -1,13 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createDefaultTemplates } from "@/lib/defaultTemplates";
-import { eventValidationSchema, validateQueryParams, paginationSchema } from '@/lib/validation';
-import { addSecurityHeaders } from '@/lib/security';
+import { withCache } from '@/lib/apiCache';
 
 // GET /api/events - Récupérer la liste des événements
-export async function GET(request: Request) {
+async function getEventsHandler(request: NextRequest) {
   try {
     // Vérifier l'authentification
     const session = await getServerSession(authOptions);
@@ -24,16 +23,14 @@ export async function GET(request: Request) {
     const onlyArchived = searchParams.get('onlyArchived') === 'true';
     
     // Construire la condition de filtrage pour l'archivage
-    let archivedCondition = {};
-    if (onlyArchived) {
-      archivedCondition = { archived: true };
-    } else if (!includeArchived) {
-      archivedCondition = { archived: false };
-    }
-    // Si includeArchived est true, on ne filtre pas sur archived
+    const archivedCondition: { archived?: boolean } = onlyArchived
+      ? { archived: true }
+      : includeArchived
+      ? {}
+      : { archived: false };
     
     // Construire la condition de filtrage selon le rôle de l'utilisateur
-    let whereCondition = { ...archivedCondition };
+    const whereCondition: { archived?: boolean; userId?: string } = { ...archivedCondition };
     
     // Si l'utilisateur est ORGANIZER, il ne voit que ses événements
     // Si c'est ADMIN, il voit tous les événements
@@ -82,7 +79,8 @@ export async function GET(request: Request) {
     });
     
     // Formater les données pour inclure le nombre d'inscriptions
-    const formattedEvents = events.map(event => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const formattedEvents = events.map((event: any) => ({
       ...event,
       start_date: event.startDate, // Pour compatibilité legacy
       end_date: event.endDate,     // Pour compatibilité legacy
@@ -100,6 +98,26 @@ export async function GET(request: Request) {
     );
   }
 }
+
+// Wrapping GET avec cache (5 minutes pour les événements)
+export const GET = withCache(
+  getEventsHandler,
+  {
+    ttl: 300, // 5 minutes
+    key: (req: NextRequest) => {
+      // Clé de cache personnalisée incluant les paramètres
+      const url = req.nextUrl;
+      const includeArchived = url.searchParams.get('includeArchived') || 'false';
+      const onlyArchived = url.searchParams.get('onlyArchived') || 'false';
+      // Note: userId sera géré automatiquement par l'authentification
+      return `api:events:archived-${includeArchived}:only-${onlyArchived}`;
+    },
+    shouldCache: (req: NextRequest, res: NextResponse) => {
+      // Ne cacher que les réponses réussies
+      return res.status === 200;
+    }
+  }
+);
 
 // POST /api/events - Créer un nouvel événement
 export async function POST(request: Request) {

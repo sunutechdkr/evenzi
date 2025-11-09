@@ -50,7 +50,7 @@ Le fichier `add_user_profile_fields.sql` contient le script complet.
 
 ### 2. 🎨 Configurer Vercel Blob (Upload Avatar)
 
-Vous avez fourni le token : `BLOB_READ_WRITE_TOKEN="vercel_blob_rw_NRHsPeOcazxaoQHo_BRH1sf5MdRlpSK33Ziwquvza81QgAY"`
+
 
 #### Vérification dans Vercel Dashboard :
 

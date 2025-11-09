@@ -18,11 +18,6 @@ export async function GET(
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Paramètres de pagination
-    const url = new URL(request.url);
-    const limit = parseInt(url.searchParams.get('limit') || '10', 10);
-    const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-
     // Vérifier que l'événement existe et appartient à l'utilisateur
     const event = await prisma.event.findFirst({
       where: {
@@ -44,13 +39,12 @@ export async function GET(
       where: {
         eventId: eventId,
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        company: true,
-        jobTitle: true,
+      include: {
+        // userEventScores: {
+        //   where: {
+        //     eventId: eventId,
+        //   },
+        // },
       },
       orderBy: {
         firstName: 'asc',
@@ -77,14 +71,7 @@ export async function GET(
       participant.rank = index + 1;
     });
 
-    // Séparer top 3 et autres
-    const topThree = mockParticipants.slice(0, 3);
-    const othersStart = 3 + offset;
-    const othersEnd = othersStart + limit;
-    const others = mockParticipants.slice(othersStart, othersEnd);
-    const hasMore = othersEnd < mockParticipants.length;
-
-    // Calculer les statistiques
+    // Calculer les statistiques avec tous les participants
     const totalParticipants = mockParticipants.length;
     const totalPoints = mockParticipants.reduce((sum, p) => sum + p.totalPoints, 0);
     const averagePoints = totalParticipants > 0 ? totalPoints / totalParticipants : 0;
@@ -97,11 +84,12 @@ export async function GET(
       topScorer,
     };
 
+    // Limiter à top 3 + 10 participants supplémentaires (total 13 max)
+    // Cela optimise le chargement en ne retournant que les participants nécessaires
+    const limitedParticipants = mockParticipants.slice(0, 13);
+
     return NextResponse.json({
-      topThree,
-      others,
-      hasMore,
-      total: totalParticipants,
+      participants: limitedParticipants,
       stats,
     });
 

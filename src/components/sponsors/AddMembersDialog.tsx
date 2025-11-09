@@ -51,7 +51,7 @@ export function AddMembersDialog({
     }
   }, [open]);
 
-  // Fetch participants with debounce (using new search API that excludes existing members)
+  // Fetch participants with debounce
   const fetchParticipants = React.useCallback(async (query: string) => {
     if (!query.trim()) {
       setParticipants([]);
@@ -60,11 +60,22 @@ export function AddMembersDialog({
 
     setLoading(true);
     try {
-      const url = `/api/events/${eventId}/sponsors/${sponsorId}/members/search?q=${encodeURIComponent(query)}`;
+      const url = `/api/events/${eventId}/participants?search=${encodeURIComponent(query)}`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setParticipants(data);
+        
+        // Filtrer selon nom, prénom, email uniquement
+        const q = normalize(query);
+        const filteredData = data.filter((participant: Participant) => {
+          const haystack = normalize(
+            `${participant.firstName ?? ""} ${participant.lastName ?? ""} ${participant.email ?? ""}`
+          );
+          return haystack.includes(q);
+        });
+        
+        // Limiter à 15 résultats pour éviter débordement
+        setParticipants(filteredData.slice(0, 15));
       } else {
         console.error('Erreur lors du chargement des participants');
         setParticipants([]);
@@ -75,7 +86,7 @@ export function AddMembersDialog({
     } finally {
       setLoading(false);
     }
-  }, [eventId, sponsorId]);
+  }, [eventId]);
 
   // Debounced search effect
   React.useEffect(() => {
@@ -92,7 +103,7 @@ export function AddMembersDialog({
   const addMember = async (participantId: string) => {
     setAddingMemberId(participantId);
     try {
-      const response = await fetch(`/api/events/${eventId}/sponsors/${sponsorId}/members`, {
+      const response = await fetch(`/api/events/sponsors/${sponsorId}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

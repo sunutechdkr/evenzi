@@ -66,14 +66,10 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const sponsorFilter = searchParams.get("sponsor");
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const skip = (page - 1) * limit;
     
     // Vérifier que l'événement existe
     const event = await prisma.event.findUnique({
       where: { id },
-      select: { id: true } // Sélectionner uniquement l'ID
     });
     
     if (!event) {
@@ -120,88 +116,48 @@ export async function GET(
       };
     }
 
-    // Récupérer les sessions et le total en parallèle pour optimiser
-    const [sessions, total] = await Promise.all([
-      prisma.event_sessions.findMany({
-        where: whereCondition,
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          start_date: true,
-          end_date: true,
-          start_time: true,
-          end_time: true,
-          location: true,
-          speaker: true,
-          capacity: true,
-          format: true,
-          banner: true,
-          video_url: true,
-          event_id: true,
-          created_at: true,
-          updated_at: true,
-          participants: {
-            select: {
-              participant: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  type: true,
-                  checkedIn: true,
-                }
-              }
-            }
+    // Récupérer toutes les sessions de l'événement SANS les participants pour optimiser les performances
+    // Les participants seront chargés individuellement quand on ouvre le détail d'une session
+    const sessions = await prisma.event_sessions.findMany({
+      where: whereCondition,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        start_date: true,
+        end_date: true,
+        start_time: true,
+        end_time: true,
+        location: true,
+        speaker: true,
+        capacity: true,
+        format: true,
+        banner: true,
+        video_url: true,
+        event_id: true,
+        created_at: true,
+        updated_at: true,
+        // Compter uniquement le nombre de participants au lieu de charger tous les détails
+        _count: {
+          select: {
+            participants: true
           }
-        },
-        orderBy: [
-          { start_date: 'asc' },
-          { start_time: 'asc' }
-        ],
-        skip,
-        take: limit
-      }) as Promise<SessionWithParticipants[]>,
-      prisma.event_sessions.count({ where: whereCondition })
-    ]);
-
-    // Transformer les données pour inclure les informations des participants inscrits
-    const transformedSessions = sessions.map((sessionItem: SessionWithParticipants) => {
-      // Séparer les speakers des participants
-      const speakers: Speaker[] = [];
-      const participants = sessionItem.participants.map((p: SessionParticipant) => p.participant);
-      
-      // Si il y a des speakers dans le champ speaker (séparés par des virgules)
-      if (sessionItem.speaker) {
-        const speakerIds = sessionItem.speaker.split(',');
-        speakerIds.forEach((speakerId: string) => {
-          const speakerData = participants.find((p: Speaker) => p.id === speakerId.trim());
-          if (speakerData) {
-            speakers.push(speakerData);
-          }
-        });
-      }
-
-      return {
-        ...sessionItem,
-        speakers,
-        participants: participants.filter((p: Speaker) => !sessionItem.speaker?.includes(p.id)),
-        participantCount: sessionItem.participants.length,
-      };
+        }
+      },
+      orderBy: [
+        { start_date: 'asc' },
+        { start_time: 'asc' }
+      ]
     });
 
-    // Retourner avec métadonnées de pagination
-    return NextResponse.json({
-      sessions: transformedSessions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasMore: skip + limit < total
-      }
-    });
+    // Transformer les données pour inclure le compte des participants
+    const transformedSessions = sessions.map((sessionItem) => ({
+      ...sessionItem,
+      speakers: [], // Les speakers seront chargés dans l'API de détail
+      participantCount: sessionItem._count.participants,
+    }));
+
+    return NextResponse.json(transformedSessions);
   } catch (error) {
     console.error("Erreur lors de la récupération des sessions:", error);
     return NextResponse.json(

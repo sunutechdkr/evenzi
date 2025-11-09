@@ -98,96 +98,46 @@ export async function GET(
       );
     }
 
-    // Récupérer les sponsors avec leurs statistiques
+    // Récupérer uniquement les sponsors SANS les statistiques pour optimiser les performances
+    // Les statistiques seront calculées uniquement quand on ouvre le détail d'un sponsor
     const sponsors = await prisma.sponsor.findMany({
       where: { eventId: id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        logo: true,
+        website: true,
+        level: true,
+        visible: true,
+        location: true,
+        address: true,
+        phone: true,
+        mobile: true,
+        email: true,
+        linkedinUrl: true,
+        twitterUrl: true,
+        facebookUrl: true,
+        eventId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Pour chaque sponsor, calculer les statistiques
-    const sponsorsWithStats = await Promise.all(
-      sponsors.map(async (sponsor: any) => {
-        // Nombre de membres/participants associés au sponsor
-        // (Participants de la même entreprise que le sponsor)
-        const membersCount = await prisma.registration.count({
-          where: {
-            eventId: id,
-            company: {
-              contains: sponsor.name,
-              mode: 'insensitive'
-            }
-          }
-        });
-
-        // Nombre de sessions où le sponsor intervient
-        // (Sessions où le speaker contient le nom du sponsor)
-        const sessionsCount = await prisma.event_sessions.count({
-          where: {
-            event_id: id,
-            OR: [
-              {
-                speaker: {
-                  contains: sponsor.name,
-                  mode: 'insensitive'
-                }
-              },
-              {
-                description: {
-                  contains: sponsor.name,
-                  mode: 'insensitive'
-                }
-              }
-            ]
-          }
-        });
-
-        // Nombre de documents (à implémenter plus tard)
-        const documentsCount = 0; // TODO: Ajouter table documents
-
-        // Nombre de rendez-vous en attente liés au sponsor
-        // (RDV où un participant de l'entreprise du sponsor est impliqué)
-        const appointmentsCount = await prisma.appointment.count({
-          where: {
-            eventId: id,
-            status: 'PENDING',
-            OR: [
-              {
-                requester: {
-                  company: {
-                    contains: sponsor.name,
-                    mode: 'insensitive'
-                  }
-                }
-              },
-              {
-                recipient: {
-                  company: {
-                    contains: sponsor.name,
-                    mode: 'insensitive'
-                  }
-                }
-              }
-            ]
-          }
-        });
-
-        // Nombre de produits (à implémenter plus tard)
-        const productsCount = 0; // TODO: Ajouter table products
-
-        return {
-          ...sponsor,
-          stats: {
-            members: membersCount,
-            sessions: sessionsCount,
-            documents: documentsCount,
-            appointments: appointmentsCount,
-            products: productsCount
-          }
-        };
-      })
-    );
+    // Retourner les sponsors avec des stats vides (seront chargées à la demande)
+    const sponsorsWithPlaceholderStats = sponsors.map((sponsor) => ({
+      ...sponsor,
+      stats: {
+        members: 0,
+        sessions: 0,
+        documents: 0,
+        appointments: 0,
+        products: 0
+      }
+    }));
     
-    return NextResponse.json(sponsorsWithStats);
+    return NextResponse.json(sponsorsWithPlaceholderStats);
   } catch (error: unknown) {
     console.error("❌ Erreur lors de la récupération des sponsors:", error);
     const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';

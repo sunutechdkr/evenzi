@@ -256,7 +256,35 @@ export const authOptions: NextAuthOptions = {
         session.user.permissions = token.permissions as string[] || [];
       }
       return session;
-    }
+    },
+    // Callback pour gérer les redirections après signIn
+    async redirect({ url, baseUrl }) {
+      // Si l'URL est relative, la rendre absolue
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+      
+      // Si l'URL commence par le baseUrl, l'autoriser
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      
+      // Vérifier que l'URL est sur le même domaine
+      try {
+        const urlObj = new URL(url);
+        const baseUrlObj = new URL(baseUrl);
+        
+        // Si même domaine, autoriser
+        if (urlObj.origin === baseUrlObj.origin) {
+          return url;
+        }
+      } catch (error) {
+        console.error('Error parsing redirect URL:', error);
+      }
+      
+      // Sinon, rediriger vers le dashboard par défaut (sécurité)
+      return `${baseUrl}/dashboard`;
+    },
   },
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-build',

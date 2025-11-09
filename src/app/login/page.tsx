@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from '@/components/ui/Logo';
+import { 
+  sanitizeRedirectUrl, 
+  canUserAccessUrl, 
+  getFinalRedirectUrl,
+  logRedirectAttempt 
+} from "@/lib/redirectValidation";
 
-export default function LoginPage() {
+function LoginForm() {
   const [activeTab, setActiveTab] = useState<'magic-link' | 'admin'>('magic-link');
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +23,54 @@ export default function LoginPage() {
   const [magicLinkStep, setMagicLinkStep] = useState<'email' | 'otp'>('email'); // Étape pour Magic Link
   const [eventName, setEventName] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+
+  // Récupérer et valider le callbackUrl depuis les query params
+  const getCallbackUrl = (): string => {
+    const callbackUrl = searchParams?.get('callbackUrl');
+    
+    if (!callbackUrl) {
+      return '/dashboard'; // Fallback par défaut
+    }
+    
+    try {
+      const decodedUrl = decodeURIComponent(callbackUrl);
+      
+      // Nettoyer et valider l'URL
+      const cleanUrl = sanitizeRedirectUrl(decodedUrl);
+      
+      return cleanUrl;
+    } catch (error) {
+      console.error('Error parsing callbackUrl:', error);
+      return '/dashboard';
+    }
+  };
+
+  // Fonction pour gérer la redirection après connexion
+  const handlePostLoginRedirect = async (userRole?: string) => {
+    const requestedUrl = getCallbackUrl();
+    
+    // Si on a le rôle de l'utilisateur, utiliser getFinalRedirectUrl
+    if (userRole) {
+      const finalUrl = getFinalRedirectUrl(requestedUrl, userRole);
+      
+      // Logger la tentative de redirection
+      logRedirectAttempt(
+        requestedUrl, 
+        userRole, 
+        canUserAccessUrl(finalUrl, userRole)
+      );
+      
+      // Redirection sécurisée
+      router.push(finalUrl);
+      router.refresh();
+    } else {
+      // Si pas de rôle, rediriger vers l'URL demandée (sera validée par le middleware)
+      router.push(requestedUrl);
+      router.refresh();
+    }
+  };
 
   // Fonction pour gérer la connexion admin avec identifiants
   const handleAdminSubmit = async (e: React.FormEvent) => {
@@ -37,8 +91,21 @@ export default function LoginPage() {
         return;
       }
       
-      router.push('/dashboard');
-      router.refresh();
+      // Attendre que la session soit mise à jour
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Récupérer le rôle depuis la session ou attendre un peu plus
+      let userRole = session?.user?.role;
+      
+      // Si pas encore disponible, faire une nouvelle tentative
+      if (!userRole) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        userRole = session?.user?.role || 'USER';
+      }
+      
+      // Rediriger vers l'URL de destination avec validation
+      await handlePostLoginRedirect(userRole);
+      
     } catch {
       setError("Une erreur s'est produite lors de la connexion");
       setLoading(false);
@@ -487,3 +554,18 @@ export default function LoginPage() {
     </div>
   );
 } 
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}

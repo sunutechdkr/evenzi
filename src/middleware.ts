@@ -4,6 +4,7 @@ import { getToken } from 'next-auth/jwt';
 import { UserRole } from './types/models';
 import { applyMiddlewareRateLimit, createMiddlewareRateLimiter } from './lib/rateLimiterMiddleware';
 import { logger } from './lib/logger';
+import { isValidRedirectUrl, sanitizeRedirectUrl } from './lib/redirectValidation';
 
 // Fonction helper pour obtenir l'IP du client
 function getClientIP(req: NextRequest): string {
@@ -172,9 +173,32 @@ export async function middleware(request: NextRequest) {
   // If no token exists, redirect to login
   if (!token) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', request.url);
+    
+    // Valider et nettoyer l'URL de destination
+    const destinationUrl = request.url;
+    
+    // Vérifier si l'URL de destination est valide et sécurisée
+    if (isValidRedirectUrl(destinationUrl)) {
+      // Encoder l'URL pour éviter les problèmes avec les caractères spéciaux
+      const sanitized = sanitizeRedirectUrl(destinationUrl);
+      loginUrl.searchParams.set('callbackUrl', encodeURIComponent(sanitized));
+    } else {
+      // Si URL invalide, utiliser une URL par défaut sécurisée
+      loginUrl.searchParams.set('callbackUrl', encodeURIComponent('/dashboard'));
+      
+      // Logger les tentatives d'URL invalides pour monitoring
+      const clientIP = getClientIP(request);
+      logger.warn('Invalid redirect URL attempted', { 
+        ip: clientIP
+      });
+      console.warn('Invalid URL:', destinationUrl);
+    }
+    
     const clientIP = getClientIP(request);
-    logger.debug('Authentication required', { ip: clientIP });
+    logger.debug('Authentication required', { 
+      ip: clientIP
+    });
+    console.log('Destination:', destinationUrl);
     return NextResponse.redirect(loginUrl);
   }
 

@@ -28,9 +28,9 @@ export async function GET(
       select: {
         id: true,
         name: true,
-        start_date: true,
-        end_date: true,
-        created_at: true,
+        startDate: true,
+        endDate: true,
+        createdAt: true,
       },
     });
     
@@ -160,8 +160,8 @@ export async function GET(
       event: {
         id: event.id,
         name: event.name,
-        startDate: event.start_date?.toISOString() || null,
-        endDate: event.end_date?.toISOString() || null,
+        startDate: event.startDate?.toISOString() || null,
+        endDate: event.endDate?.toISOString() || null,
       },
       registrations: {
         total: registrationStatsData.total,
